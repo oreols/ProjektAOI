@@ -51,6 +51,7 @@ protobuf==6.30.0
 psutil==7.0.0
 py-cpuinfo==9.0.0
 pyasn1==0.6.1
+pycocotools==2.0.8
 pydantic==2.10.6
 pydantic_core==2.27.2
 pyparsing==3.2.1
