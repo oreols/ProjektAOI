@@ -1,33 +1,35 @@
 import torch
 from torch.utils.data import DataLoader
 from models.faster_rcnn import get_model
-from utils.dataset_loader import PCBDataset  # Usunięto import 'transform'
-from torch.cuda.amp import GradScaler
-import torch.amp
+from utils.dataset_loader import PCBDataset
+from torch.amp import GradScaler, autocast
 from tqdm import tqdm
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# Definicja collate_fn jako funkcji globalnej (zamiast lambda)
+# Globalna funkcja collate_fn, aby uniknąć problemów z picklingiem
 def collate_fn(batch):
     return tuple(zip(*batch))
 
 def main():
     num_classes = 2  
     num_epochs = 20
-    batch_size = 4  # Ustalony większy batch_size – upewnij się, że GPU na to pozwala
+    batch_size = 4  # Upewnij się, że GPU pozwala na taki batch_size
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     image_dir = "dataset"
     annotation_dir = "dataset/voc_annotations-ic"
 
-    # Pipeline augmentacji – wykorzystujemy Affine zamiast ShiftScaleRotate, aby uniknąć ostrzeżenia
+    # Rozszerzony pipeline augmentacji – usunięto parametry powodujące ostrzeżenia.
     augmentation_transform = A.Compose(
         [
-            A.HorizontalFlip(p=0.5),
-            A.RandomBrightnessContrast(p=0.2),
-            A.Affine(rotate=(-15, 15), shear=(-10, 10), p=0.5),
-            ToTensorV2()
+            A.HorizontalFlip(p=0.5),                # Flip poziomy
+            A.RandomRotate90(p=0.5),                # Losowa rotacja o 90 stopni
+            A.Rotate(limit=15, p=0.5),               # Obrót o losowy kąt w zakresie ±15 stopni
+            A.RandomBrightnessContrast(p=0.5),      # Losowa zmiana jasności i kontrastu
+            A.CoarseDropout(p=0.5),                 # Losowe "wycinanie" fragmentów obrazu z domyślnymi ustawieniami
+            A.GaussNoise(p=0.5),                    # Dodanie szumu Gaussowskiego z domyślnymi ustawieniami
+            ToTensorV2()                           # Konwersja obrazu do tensora (skalowanie do [0,1])
         ],
         bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels'])
     )
@@ -46,7 +48,6 @@ def main():
     optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-    # Używamy nowej składni GradScaler, która włącza skalowanie tylko przy użyciu GPU
     scaler = GradScaler(enabled=(device.type == 'cuda'))
 
     model.train()
@@ -59,8 +60,7 @@ def main():
 
             optimizer.zero_grad()
             
-            # Używamy nowej składni autocast
-            with torch.amp.autocast(device_type='cuda'):
+            with autocast(device_type='cuda' if device.type=='cuda' else 'cpu'):
                 loss_dict = model(images, targets)
                 losses = sum(loss for loss in loss_dict.values())
             
@@ -74,7 +74,7 @@ def main():
         scheduler.step()
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
 
-    torch.save(model.state_dict(), "final_capacitor_faster_rcnn_pcb.pth")
+    torch.save(model.state_dict(), "models/trenowane/ic_faster_rcnn_pcb.pth")
     print("Model zapisany!")
 
 if __name__ == '__main__':

@@ -5,8 +5,8 @@ from models.faster_rcnn import get_model
 
 # Poprawione ścieżki do katalogów
 # image_path = r"C:/Users/Marek/Desktop/kondesator/dataset/ACCC1.jpg"  # Wybierz konkretne zdjęcie
-image_path = "BCCC2.jpg"  # Wybierz konkretne zdjęcie
-model_path = "faster_rcnn_pcb.pth"
+image_path = "img000.png"  # Wybierz konkretne zdjęcie
+model_path = "models/trenowane/ic_faster_rcnn_pcb.pth"
 # model_path = "best_model.pth"
  
 num_classes = 2
@@ -30,7 +30,7 @@ img_tensor = img_tensor.unsqueeze(0).to(device)  # Dodanie wymiaru batch i przen
 with torch.no_grad():
     prediction = model(img_tensor)[0]
 
-def visualize(image, prediction, threshold=0.75):
+def visualize(image, prediction, threshold=0.5):
     """
     Wizualizacja wykrytych obiektów.
     - image: obraz w formacie tensorowym

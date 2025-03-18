@@ -13,7 +13,7 @@ class PCBDataset(Dataset):
         self.augmentation_transform = augmentation_transform
         self.image_filenames = [f for f in os.listdir(image_dir) if f.endswith(('.jpg', '.png'))]
 
-        # Używamy tylko obrazów, dla których istnieją adnotacje
+        # Używamy tylko obrazów, dla których istnieją adnotacje XML
         self.image_filenames = [
             f for f in self.image_filenames 
             if os.path.exists(os.path.join(self.annotation_dir, f.rsplit('.', 1)[0] + '.xml'))
@@ -24,7 +24,7 @@ class PCBDataset(Dataset):
         img_path = os.path.join(self.image_dir, img_name)
         xml_path = os.path.join(self.annotation_dir, img_name.rsplit('.', 1)[0] + '.xml')
 
-        # Wczytanie obrazu i konwersja do formatu RGB
+        # Wczytanie obrazu i konwersja do RGB
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -34,7 +34,7 @@ class PCBDataset(Dataset):
         boxes = []
         labels = []
         for obj in root.findall("object"):
-            labels.append(1)  # Zakładamy jedną klasę (kondensatory)
+            labels.append(1)  # Zakładamy jedną klasę, np. kondensatory
             bbox = obj.find("bndbox")
             x_min = int(bbox.find("xmin").text)
             y_min = int(bbox.find("ymin").text)
@@ -51,13 +51,25 @@ class PCBDataset(Dataset):
         else:
             img = T.ToTensor()(img)
         
-        # Upewnij się, że obraz jest w formacie float (zakres [0, 1])
+        # Upewnij się, że obraz jest typu float (wartości w zakresie [0,1])
         if not torch.is_floating_point(img):
             img = img.float() / 255.0
 
+        # Konwersja list do tensorów o odpowiednich kształtach
+        if len(boxes) == 0:
+            boxes_tensor = torch.empty((0, 4), dtype=torch.float32)
+        else:
+            boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
+            if boxes_tensor.ndim == 1:
+                boxes_tensor = boxes_tensor.view(-1, 4)
+        if len(labels) == 0:
+            labels_tensor = torch.empty((0,), dtype=torch.int64)
+        else:
+            labels_tensor = torch.tensor(labels, dtype=torch.int64)
+
         target = {
-            "boxes": torch.tensor(boxes, dtype=torch.float32), 
-            "labels": torch.tensor(labels, dtype=torch.int64)
+            "boxes": boxes_tensor, 
+            "labels": labels_tensor
         }
         return img, target
 
