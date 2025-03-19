@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QWidget" name="widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>800</height>
+    </rect>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>905</width>
+     <height>100</height>
+    </size>
+   </property>
+   <property name="sizeIncrement">
+    <size>
+     <width>100</width>
+     <height>50</height>
+    </size>
+   </property>
+   <property name="baseSize">
+    <size>
+     <width>100</width>
+     <height>50</height>
+    </size>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(210, 208, 208);
+QWidget#widget{
+font: 63 12pt &quot;Segoe UI Semibold&quot;;
+}</string>
+   </property>
+   <widget class="QTableWidget" name="tableWidget">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>250</y>
+      <width>905</width>
+      <height>100</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>905</width>
+      <height>100</height>
+     </size>
+    </property>
+    <property name="sizeIncrement">
+     <size>
+      <width>100</width>
+      <height>50</height>
+     </size>
+    </property>
+    <property name="baseSize">
+     <size>
+      <width>100</width>
+      <height>50</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 63 12pt &quot;Segoe UI Semibold&quot;;
+background-color: rgb(148, 176, 182);</string>
+    </property>
+    <attribute name="horizontalHeaderCascadingSectionResizes">
+     <bool>false</bool>
+    </attribute>
+    <attribute name="horizontalHeaderDefaultSectionSize">
+     <number>150</number>
+    </attribute>
+    <column>
+     <property name="text">
+      <string>Imię</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Nazwisko</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Stanowisko</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Uprawnienia</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Edytuj</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Usuń</string>
+     </property>
+    </column>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
