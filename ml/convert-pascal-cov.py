@@ -59,6 +59,6 @@ def labelme_to_voc(labelme_folder, output_folder):
     print(f"Konwersja zakończona! Pliki zapisane w {output_folder}")
 
 # Przykładowe użycie
-labelme_folder = "dataset/labels-ic/"
-output_folder = "dataset/voc_annotations-ic"
+labelme_folder = "dataset/labels-jumpers/"
+output_folder = "dataset/voc_annotations-jumpers/"
 labelme_to_voc(labelme_folder, output_folder)
