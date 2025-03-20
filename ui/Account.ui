@@ -49,16 +49,22 @@ font: 63 12pt &quot;Segoe UI Semibold&quot;;
    <widget class="QTableWidget" name="tableWidget">
     <property name="geometry">
      <rect>
-      <x>170</x>
-      <y>250</y>
-      <width>905</width>
-      <height>100</height>
+      <x>80</x>
+      <y>130</y>
+      <width>1052</width>
+      <height>610</height>
      </rect>
     </property>
     <property name="minimumSize">
      <size>
-      <width>905</width>
-      <height>100</height>
+      <width>1052</width>
+      <height>500</height>
+     </size>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>1052</width>
+      <height>610</height>
      </size>
     </property>
     <property name="sizeIncrement">
@@ -91,6 +97,11 @@ background-color: rgb(148, 176, 182);</string>
     <column>
      <property name="text">
       <string>Nazwisko</string>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>Email</string>
      </property>
     </column>
     <column>

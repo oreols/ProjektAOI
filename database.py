@@ -101,3 +101,43 @@ def update_password(user_id, current_password, new_password):
     finally:
         cursor.close()
         connection.close()
+
+def get_users():
+    connection = connect_to_db()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT u.id, u.name, u.surname, u.email,u.admin, p.name AS position_name FROM user u LEFT JOIN `position` p ON u.position_id = p.id")
+    users = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return users
+
+def delete_user(user_id):
+    connection = connect_to_db()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("DELETE FROM user WHERE id = %s", (user_id,))
+        connection.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print("Błąd podczas usuwania użytkownika:", e)
+        connection.rollback()
+        return False
+    finally:
+        cursor.close()
+        connection.close()
+
+def edit_user(user_id, name, surname, email, position_id, is_admin):
+    connection = connect_to_db()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("UPDATE user SET name = %s, surname = %s, email = %s, position_id = %s, admin = %s WHERE id = %s",
+                       (name, surname, email, position_id, is_admin, user_id))
+        connection.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print("Błąd podczas aktualizacji użytkownika:", e)
+        connection.rollback()
+        return False
+    finally:
+        cursor.close()
+        connection.close()
