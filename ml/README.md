@@ -2,12 +2,11 @@
 
 python -m venv myenv
 
-pip install -r requirements.txt
-
 myenv\Scripts\activate
 
+pip install -r requirements.txt
+
 ###
-Repozytorium nie zawiera wyuczonych już modeli, jedynie pretrenowany. 
 
 1. Gotowe labele convertujemy na voc plikiem conver-pascal-cov.py
 2. Sprawdzamy poprawnosc sciezek w data_loader.py oraz train.py 

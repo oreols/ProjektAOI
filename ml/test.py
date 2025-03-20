@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 from models.faster_rcnn import get_model
 
 # Poprawione ścieżki do katalogów
-# image_path = r"C:/Users/Marek/Desktop/kondesator/dataset/ACCC1.jpg"  # Wybierz konkretne zdjęcie
-image_path = "img000.png"  # Wybierz konkretne zdjęcie
-model_path = "models/trenowane/ic_faster_rcnn_pcb.pth"
+image_path = r"C:/Users/Marek/Desktop/pcb/Prosty-keras/img15.png"  
+model_path = "models/trained_components/ic_faster_rcnn_pcb.pth"
 # model_path = "best_model.pth"
  
 num_classes = 2
@@ -46,7 +45,7 @@ def visualize(image, prediction, threshold=0.5):
             x1, y1, x2, y2 = map(int, box.cpu().numpy())  # Konwersja na int
             count += 1  # Zliczanie obiektów
             plt.gca().add_patch(plt.Rectangle((x1, y1), x2 - x1, y2 - y1, edgecolor='red', linewidth=2, fill=False))
-            plt.text(x1, y1 - 5, f'Kondensator: {score:.2f}', color='red', fontsize=8, bbox=dict(facecolor='white', alpha=0.5))
+            plt.text(x1, y1 - 5, f'IC/U: {score:.2f}', color='red', fontsize=8, bbox=dict(facecolor='white', alpha=0.5))
 
     print(f"Liczba wykrytych obiektów: {count}")
     plt.axis("off")
