@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QDialog" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QWidget" name="widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>800</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Segoe UI Semibold</family>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(210, 208, 208);</string>
+   </property>
+   <widget class="QPushButton" name="weekButton">
+    <property name="geometry">
+     <rect>
+      <x>400</x>
+      <y>180</y>
+      <width>120</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(64, 120, 132);
+font: 12pt &quot;MS Shell Dlg 2&quot;;
+color:white;
+border-radius:20px;</string>
+    </property>
+    <property name="text">
+     <string>tydzień</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="yearButton">
+    <property name="geometry">
+     <rect>
+      <x>760</x>
+      <y>180</y>
+      <width>120</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(64, 120, 132);
+font: 12pt &quot;MS Shell Dlg 2&quot;;
+color:white;
+border-radius:20px;</string>
+    </property>
+    <property name="text">
+     <string>rok</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="tableWidget">
+    <property name="geometry">
+     <rect>
+      <x>250</x>
+      <y>280</y>
+      <width>581</width>
+      <height>331</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>300</width>
+      <height>0</height>
+     </size>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>800</width>
+      <height>16777215</height>
+     </size>
+    </property>
+    <property name="toolTip">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+    <property name="toolTipDuration">
+     <number>0</number>
+    </property>
+    <property name="layoutDirection">
+     <enum>Qt::LeftToRight</enum>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(148, 176, 182);
+font: 63 12pt &quot;Segoe UI Semibold&quot;;</string>
+    </property>
+    <property name="lineWidth">
+     <number>1</number>
+    </property>
+    <property name="midLineWidth">
+     <number>0</number>
+    </property>
+    <property name="showGrid">
+     <bool>true</bool>
+    </property>
+    <property name="gridStyle">
+     <enum>Qt::SolidLine</enum>
+    </property>
+    <property name="sortingEnabled">
+     <bool>false</bool>
+    </property>
+    <property name="wordWrap">
+     <bool>true</bool>
+    </property>
+    <attribute name="horizontalHeaderDefaultSectionSize">
+     <number>400</number>
+    </attribute>
+    <attribute name="horizontalHeaderMinimumSectionSize">
+     <number>400</number>
+    </attribute>
+    <row>
+     <property name="text">
+      <string>zbadane</string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>całkowicie dobre </string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>wadliwe </string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>brak komponentu</string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>złe umiejscowienie</string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>zła orientacja</string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>zanieczyszczenie</string>
+     </property>
+    </row>
+    <row>
+     <property name="text">
+      <string>złe wymiary</string>
+     </property>
+    </row>
+    <column>
+     <property name="text">
+      <string>wyniki </string>
+     </property>
+    </column>
+   </widget>
+   <widget class="QPushButton" name="monthButton">
+    <property name="geometry">
+     <rect>
+      <x>580</x>
+      <y>180</y>
+      <width>120</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(64, 120, 132);
+font: 12pt &quot;MS Shell Dlg 2&quot;;
+color:white;
+border-radius:20px;</string>
+    </property>
+    <property name="text">
+     <string>miesiąc</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="dayButton">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>180</y>
+      <width>120</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(64, 120, 132);
+font: 12pt &quot;MS Shell Dlg 2&quot;;
+color:white;
+border-radius:20px;</string>
+    </property>
+    <property name="text">
+     <string>dzień</string>
+    </property>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

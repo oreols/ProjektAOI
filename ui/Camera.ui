@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QTableWidget" name="tableWidget">
+   <property name="geometry">
+    <rect>
+     <x>700</x>
+     <y>260</y>
+     <width>471</width>
+     <height>231</height>
+    </rect>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>120</width>
+     <height>0</height>
+    </size>
+   </property>
+   <property name="sizeIncrement">
+    <size>
+     <width>120</width>
+     <height>0</height>
+    </size>
+   </property>
+   <property name="baseSize">
+    <size>
+     <width>120</width>
+     <height>0</height>
+    </size>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: 63 12pt &quot;Segoe UI Semibold&quot;;</string>
+   </property>
+   <property name="midLineWidth">
+    <number>0</number>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>120</width>
+     <height>0</height>
+    </size>
+   </property>
+   <attribute name="horizontalHeaderDefaultSectionSize">
+    <number>160</number>
+   </attribute>
+   <attribute name="horizontalHeaderMinimumSectionSize">
+    <number>160</number>
+   </attribute>
+   <attribute name="verticalHeaderDefaultSectionSize">
+    <number>38</number>
+   </attribute>
+   <attribute name="verticalHeaderMinimumSectionSize">
+    <number>38</number>
+   </attribute>
+   <row>
+    <property name="text">
+     <string>wykrycie elementu</string>
+    </property>
+   </row>
+   <row>
+    <property name="text">
+     <string>prawidłowe położenie elementu</string>
+    </property>
+   </row>
+   <row>
+    <property name="text">
+     <string>prawidłowa orientacja elementu</string>
+    </property>
+   </row>
+   <row>
+    <property name="text">
+     <string>prawidłowe wymiary elementu</string>
+    </property>
+   </row>
+   <row>
+    <property name="text">
+     <string>brak zanieczyszczeń</string>
+    </property>
+   </row>
+   <column>
+    <property name="text">
+     <string>wynik</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>679</x>
+     <y>169</y>
+     <width>500</width>
+     <height>350</height>
+    </rect>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>500</width>
+     <height>350</height>
+    </size>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(148, 176, 182);
+border-radius:20px;</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>820</x>
+     <y>180</y>
+     <width>191</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: 63 16pt &quot;Segoe UI Semibold&quot;;
+color:white;
+</string>
+   </property>
+   <property name="text">
+    <string>WYKRYTE DEFEKTY</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>800</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(210, 208, 208);</string>
+   </property>
+   <widget class="QFrame" name="start_testing">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>641</width>
+      <height>701</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(233, 233, 233);
+</string>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+    <widget class="QPushButton" name="startTestingButton">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>641</width>
+       <height>51</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgb(5, 142, 240);
+color:white;
+font: 63 12pt &quot;Segoe UI Semibold&quot;;</string>
+     </property>
+     <property name="text">
+      <string>ROZPOCZNIJ TESTOWANIE</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="cap">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>70</y>
+       <width>600</width>
+       <height>400</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgb(183, 202, 255);</string>
+     </property>
+     <property name="text">
+      <string>Kamera</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="start_button">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>490</y>
+       <width>561</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>start</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="stop_button">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>530</y>
+       <width>561</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>stop</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="analyze_button">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>570</y>
+       <width>561</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>analiza krawędzi</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="record_button">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>610</y>
+       <width>561</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>nagrywaj</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="virtual_cam_button">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>650</y>
+       <width>561</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Wybierz wirtualną kamerę</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+  <zorder>widget</zorder>
+  <zorder>label</zorder>
+  <zorder>tableWidget</zorder>
+  <zorder>label_2</zorder>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

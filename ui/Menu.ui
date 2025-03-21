@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QStackedWidget" name="stackedWidget">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>1200</width>
+      <height>800</height>
+     </rect>
+    </property>
+    <widget class="QWidget" name="page"/>
+    <widget class="QWidget" name="page_2"/>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuMenu">
+    <property name="title">
+     <string>Menu</string>
+    </property>
+    <addaction name="actionReports"/>
+    <addaction name="actionCameras"/>
+    <addaction name="actionHistory"/>
+    <addaction name="actionAccount"/>
+    <addaction name="actionRegister"/>
+    <addaction name="actionAccountSettings"/>
+    <addaction name="actionLogout"/>
+   </widget>
+   <addaction name="menuMenu"/>
+  </widget>
+  <action name="actionCameras">
+   <property name="text">
+    <string>Kamery</string>
+   </property>
+  </action>
+  <action name="actionReports">
+   <property name="text">
+    <string>Raporty</string>
+   </property>
+  </action>
+  <action name="actionHistory">
+   <property name="text">
+    <string>Historia</string>
+   </property>
+  </action>
+  <action name="actionAccount">
+   <property name="text">
+    <string>Konta użytkowników</string>
+   </property>
+  </action>
+  <action name="actionLogout">
+   <property name="text">
+    <string>Wyloguj</string>
+   </property>
+  </action>
+  <action name="actionRegister">
+   <property name="text">
+    <string>Dodaj konto</string>
+   </property>
+  </action>
+  <action name="actionAccountSettings">
+   <property name="text">
+    <string>Ustawienia konta</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
