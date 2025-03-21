@@ -2,7 +2,10 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 import sys
 import cv2
-from PyQt5.QtWidgets import QDialog,QLabel, QApplication, QMessageBox, QFileDialog
+import os
+from PyQt5.QtWidgets import QDialog, QLabel, QApplication, QMessageBox, QFileDialog
+import torchvision
+import torch
 from PyQt5.QtCore import QTimer
 
 class Camera(QDialog):
@@ -12,21 +15,70 @@ class Camera(QDialog):
         self.setGeometry(100, 100, 1200, 800)
         self.cap_label = self.findChild(QLabel, "cap")
 
+        model_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/final_capacitor_faster_rcnn_pcb.pth")
+        )
+        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
+        num_classes = 2
+        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+        self.model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, num_classes)
 
-        # Camera
+        self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        self.model.eval()
+
+        print(f"Model załadowany z: {model_path}")
+
         self.cap = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.analyze = False
         self.recording = False
         self.video_writer = None
+        self.frame_count = 0
 
-        # Button actions
         self.start_button.clicked.connect(self.start_camera)
         self.stop_button.clicked.connect(self.stop_camera)
         self.analyze_button.clicked.connect(self.toggle_analysis)
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
+
+    def choose_virtual_camera(self):
+        if self.cap is not None and self.cap.isOpened():
+            self.cap.release()
+
+        # Spróbuj otworzyć wirtualną kamerę OBS (często pod indeksem 1 lub 2)
+        virtual_camera_index = 1 # Zmień na 0, 2, 3, jeśli nie działa
+        self.cap = cv2.VideoCapture(virtual_camera_index)
+
+        if not self.cap.isOpened():
+            QMessageBox.critical(self, "Błąd", "Nie można otworzyć wirtualnej kamery.")
+            self.cap = None
+            return
+
+        self.timer.start(30)
+
+    def resize_with_aspect_ratio(self, frame, target_width, target_height):
+        h, w, _ = frame.shape
+        aspect_ratio = w / h
+        new_width = target_width
+        new_height = int(new_width / aspect_ratio)
+
+        if new_height > target_height:
+            new_height = target_height
+            new_width = int(new_height * aspect_ratio)
+
+        frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
+        resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        result = cv2.copyMakeBorder(
+            resized_frame,
+            (target_height - new_height) // 2,
+            (target_height - new_height + 1) // 2,
+            (target_width - new_width) // 2,
+            (target_width - new_width + 1) // 2,
+            cv2.BORDER_CONSTANT,
+            value=(0, 0, 0),
+        )
+        return result
 
     def start_camera(self):
         if self.cap is not None and self.cap.isOpened():
@@ -46,10 +98,9 @@ class Camera(QDialog):
         if self.cap:
             self.cap.release()
             self.cap = None
-        self.cap_label.setPixmap(QPixmap())  # Wyczyść podgląd kamery
+        self.cap_label.setPixmap(QPixmap())
         if self.recording:
             self.toggle_recording()
-
 
     def toggle_analysis(self):
         self.analyze = not self.analyze
@@ -66,25 +117,59 @@ class Camera(QDialog):
             if self.video_writer:
                 self.video_writer.release()
                 self.video_writer = None
+                print("Nagrywanie zakończone.")
         else:
             options = QFileDialog.Options()
-            file_name, _ = QFileDialog.getSaveFileName(self, "Zapisz nagranie", "", "AVI Files (*.avi);;All Files (*)", options=options)
-            if file_name:
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-                self.video_writer = cv2.VideoWriter(file_name, fourcc, 30.0, (640, 480))
-                self.recording = True
-                self.record_button.setText("Zatrzymaj Nagrywanie")
-    def choose_virtual_camera(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Wybierz plik wideo", "", "Video Files (*.mp4 *.avi *.mov)", options=options)
-        
-        if file_name:
-            self.cap = cv2.VideoCapture(file_name)
-            if not self.cap.isOpened():
-                QMessageBox.critical(self, "Błąd", "Nie można otworzyć pliku wideo.")
-                self.cap = None
+            file_name, _ = QFileDialog.getSaveFileName(
+                self, "Zapisz nagranie", "", "MP4 Files (*.mp4);;AVI Files (*.avi);;All Files (*)", options=options
+            )
+
+            if not file_name:
+                print("Nie wybrano pliku.")
                 return
-            self.timer.start(30)
+
+            # Sprawdzenie, czy dodano rozszerzenie
+            if not (file_name.lower().endswith(".mp4") or file_name.lower().endswith(".avi")):
+                file_name += ".mp4"
+
+            # Dobór kodeka:
+            if file_name.lower().endswith(".mp4"):
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Najbezpieczniejszy dla MP4
+            else:
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+
+            # Rozdzielczość - dopasowanie do labela cap:
+            resolution = (self.cap_label.width(), self.cap_label.height())
+
+            # Próba utworzenia VideoWriter:
+            self.video_writer = cv2.VideoWriter(file_name, fourcc, 30.0, resolution)
+
+            if not self.video_writer.isOpened():
+                QMessageBox.critical(self, "Błąd", f"Nie udało się otworzyć pliku do zapisu: {file_name}")
+                print(f"Nie udało się otworzyć pliku: {file_name}")
+                return
+
+            self.recording = True
+            self.record_button.setText("Zatrzymaj Nagrywanie")
+            print(f"Nagrywanie rozpoczęte: {file_name}")
+
+
+
+
+    def detect_components(self, frame):
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        tensor_frame = torch.from_numpy(rgb_frame / 255.0).permute(2, 0, 1).float().unsqueeze(0)
+
+        with torch.no_grad():
+            predictions = self.model(tensor_frame)[0]
+
+        for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
+            if score > 0.8:
+                x1, y1, x2, y2 = map(int, box.tolist())
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f"{label}: {score:.2f}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+        return frame
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -93,20 +178,22 @@ class Camera(QDialog):
             self.stop_camera()
             return
 
-        # Convert frame to RGB and display it
+        self.frame_count += 1
+        original_frame = frame.copy()
+
         if self.analyze:
-            frame = cv2.Canny(frame, 100, 200)
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+            frame = self.detect_components(original_frame)
         else:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Rozciąganie obrazu do pełnych wymiarów labela cap
+        frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
 
         h, w, ch = frame.shape
         bytes_per_line = ch * w
         qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
-  # Display frame in QLabel
 
-        # Save frame if recording
         if self.recording and self.video_writer:
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             self.video_writer.write(bgr_frame)
@@ -114,5 +201,3 @@ class Camera(QDialog):
     def closeEvent(self, event):
         self.stop_camera()
         event.accept()
-
-
