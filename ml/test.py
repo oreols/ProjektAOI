@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from models.faster_rcnn import get_model
 
 # Poprawione ścieżki do katalogów
-image_path = r"C:/Users/Marek/Desktop/pcb/Prosty-keras/img15.png"  
-model_path = "models/trained_components/ic_faster_rcnn_pcb.pth"
+image_path = r"C:\Users\Marek\Downloads\a.png"  
+model_path = "models/trained_components/usb_faster_rcnn_pcb.pth"
 # model_path = "best_model.pth"
  
 num_classes = 2

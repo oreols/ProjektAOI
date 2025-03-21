@@ -82,7 +82,7 @@ class EvalDataset(PCBDataset):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image_dir = "dataset"
-    annotation_dir = os.path.join("dataset", "voc_annotations-ic")
+    annotation_dir = os.path.join("dataset", "voc_annotations-usb")
     
     # 1. Konwersja ground truth do formatu COCO
     coco_gt = create_coco_ground_truth(image_dir, annotation_dir)
@@ -97,7 +97,7 @@ def main():
     # 3. Ładowanie modelu
     num_classes = 2
     model = get_model(num_classes)
-    model.load_state_dict(torch.load("models/trenowane/ic_faster_rcnn_pcb.pth", map_location=device))
+    model.load_state_dict(torch.load("models/trained_components/usb_faster_rcnn_pcb.pth", map_location=device))
     model.to(device)
     model.eval()
     

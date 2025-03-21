@@ -18,7 +18,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     image_dir = "dataset"
-    annotation_dir = "dataset/voc_annotations-jumpers"
+    annotation_dir = "dataset/voc_annotations-usb"
 
     # Rozszerzony pipeline augmentacji – usunięto parametry powodujące ostrzeżenia.
     augmentation_transform = A.Compose(
@@ -74,7 +74,7 @@ def main():
         scheduler.step()
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
 
-    torch.save(model.state_dict(), "models/trained_components/jumpers_faster_rcnn_pcb.pth")
+    torch.save(model.state_dict(), "models/trained_components/usb_faster_rcnn_pcb.pth")
     print("Model zapisany!")
 
 if __name__ == '__main__':
