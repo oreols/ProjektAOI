@@ -152,22 +152,22 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="analyze_button">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>660</y>
+      <x>20</x>
+      <y>630</y>
       <width>561</width>
       <height>28</height>
      </rect>
     </property>
     <property name="text">
-     <string>analiza krawędzi</string>
+     <string>rozpocznij analizę</string>
     </property>
    </widget>
    <widget class="QPushButton" name="start_button">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>580</y>
-      <width>561</width>
+      <x>20</x>
+      <y>490</y>
+      <width>191</width>
       <height>28</height>
      </rect>
     </property>
@@ -194,8 +194,8 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="virtual_cam_button">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>740</y>
+      <x>20</x>
+      <y>530</y>
       <width>561</width>
       <height>28</height>
      </rect>
@@ -207,9 +207,9 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="stop_button">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>620</y>
-      <width>561</width>
+      <x>390</x>
+      <y>490</y>
+      <width>191</width>
       <height>28</height>
      </rect>
     </property>
@@ -220,14 +220,66 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="record_button">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>700</y>
+      <x>20</x>
+      <y>680</y>
       <width>561</width>
       <height>28</height>
      </rect>
     </property>
     <property name="text">
-     <string>nagrywaj</string>
+     <string>nagraj ekran</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="component">
+    <property name="geometry">
+     <rect>
+      <x>260</x>
+      <y>570</y>
+      <width>321</width>
+      <height>41</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>570</y>
+      <width>161</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
+    </property>
+    <property name="text">
+     <string>Wybierz komponent</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>740</y>
+      <width>201</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>liczba wykrytych elementów: </string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="count_elements">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>740</y>
+      <width>141</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
     </property>
    </widget>
   </widget>
