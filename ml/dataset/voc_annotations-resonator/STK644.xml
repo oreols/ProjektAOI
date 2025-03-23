@@ -1,0 +1,1 @@
+<annotation><folder>dataset</folder><filename>STK644.jpg</filename><size><width>5880</width><height>3920</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>3159</xmin><ymin>2040</ymin><xmax>3302</xmax><ymax>2351</ymax></bndbox></object></annotation>
