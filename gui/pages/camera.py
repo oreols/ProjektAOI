@@ -20,6 +20,7 @@ class Camera(QDialog):
             "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/ic_faster_rcnn_pcb.pth")),
             "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_faster_rcnn_pcb.pth")),
             "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_faster_rcnn_pcb.pth")),
+            "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/quartz_resonator_faster_rcnn_pcb.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -49,6 +50,7 @@ class Camera(QDialog):
         self.component.addItem("Układ scalony")
         self.component.addItem("Zworka")
         self.component.addItem("USB")
+        self.component.addItem("Rezonator kwarcowy")
 
     def load_model(self, model_path):
             if os.path.exists(model_path):
