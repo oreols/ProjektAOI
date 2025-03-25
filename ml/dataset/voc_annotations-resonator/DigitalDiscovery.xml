@@ -1,0 +1,1 @@
+<annotation><folder>dataset</folder><filename>DigitalDiscovery.jpg</filename><size><width>1520</width><height>1500</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>652</xmin><ymin>307</ymin><xmax>722</xmax><ymax>367</ymax></bndbox></object></annotation>

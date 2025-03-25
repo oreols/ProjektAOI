@@ -15,18 +15,23 @@ class Camera(QDialog):
         self.setGeometry(100, 100, 1200, 800)
         self.cap_label = self.findChild(QLabel, "cap")
 
-        model_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/final_capacitor_faster_rcnn_pcb.pth")
-        )
+        self.model_paths = {
+            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/final_capacitor_faster_rcnn_pcb.pth")),
+            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/ic_faster_rcnn_pcb.pth")),
+            "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_faster_rcnn_pcb.pth")),
+            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_faster_rcnn_pcb.pth")),
+            "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/quartz_resonator_faster_rcnn_pcb.pth")),
+        }
+
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
+    
         num_classes = 2
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
         self.model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, num_classes)
-
-        self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        
         self.model.eval()
 
-        print(f"Model załadowany z: {model_path}")
+        self.component.currentTextChanged.connect(self.change_model)
 
         self.cap = None
         self.timer = QTimer()
@@ -41,13 +46,35 @@ class Camera(QDialog):
         self.analyze_button.clicked.connect(self.toggle_analysis)
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
+        self.component.addItem("Kondensator")
+        self.component.addItem("Układ scalony")
+        self.component.addItem("Zworka")
+        self.component.addItem("USB")
+        self.component.addItem("Rezonator kwarcowy")
+
+    def load_model(self, model_path):
+            if os.path.exists(model_path):
+                self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+                self.model.eval()
+                print(f"Załadowano model: {model_path}")
+            else:
+                QMessageBox.critical(self, "Błąd", f"Nie znaleziono modelu: {model_path}")
+
+        # Podpięcie wyboru komponentu do zmiany modelu:
+            self.component.currentTextChanged.connect(self.change_model)
+
+    def change_model(self, selected_component):
+        if selected_component in self.model_paths:
+            self.load_model(self.model_paths[selected_component])
+            print(f"Załadowano model: {selected_component}")
+        else:
+            QMessageBox.warning(self, "Uwaga", f"Nie znaleziono modelu dla: {selected_component}")
 
     def choose_virtual_camera(self):
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
 
-        # Spróbuj otworzyć wirtualną kamerę OBS (często pod indeksem 1 lub 2)
-        virtual_camera_index = 1 # Zmień na 0, 2, 3, jeśli nie działa
+        virtual_camera_index = 1 
         self.cap = cv2.VideoCapture(virtual_camera_index)
 
         if not self.cap.isOpened():
@@ -67,7 +94,7 @@ class Camera(QDialog):
             new_height = target_height
             new_width = int(new_height * aspect_ratio)
 
-        frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
+        # frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
         resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
         result = cv2.copyMakeBorder(
             resized_frame,
@@ -163,12 +190,14 @@ class Camera(QDialog):
         with torch.no_grad():
             predictions = self.model(tensor_frame)[0]
 
+        count = 0
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
             if score > 0.8:
+                count += 1
                 x1, y1, x2, y2 = map(int, box.tolist())
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame, f"{label}: {score:.2f}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-
+        self.count_elements.setText(f"{count}")
         return frame
 
     def update_frame(self):

@@ -1,13 +1,18 @@
 import mysql.connector
 import bcrypt
 
+from db_config import DB_CONFIG
+import mysql.connector
+
 def connect_to_db():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Qapl1029.",  # Zmień na swoje hasło
-        database="AOI_PCB"  # Zmień na swoją nazwę bazy
-    )
+    return mysql.connector.connect(**DB_CONFIG)
+
+try:
+    conn = connect_to_db()
+    print("Połączono z bazą danych!")
+    conn.close()
+except mysql.connector.Error as err:
+    print(f"Błąd: {err}")
 
 def verify_login(email, password):
     connection = connect_to_db()

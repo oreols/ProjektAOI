@@ -1,0 +1,1 @@
+<annotation><folder>dataset</folder><filename>LCCC3.jpg</filename><size><width>1692</width><height>1879</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>837</xmin><ymin>1247</ymin><xmax>931</xmax><ymax>1319</ymax></bndbox></object></annotation>
