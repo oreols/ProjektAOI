@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from models.faster_rcnn import get_model
+from models.faster_rcnn import get_model, load_trained_model
 from utils.dataset_loader import PCBDataset
 from torch.amp import GradScaler, autocast
 from tqdm import tqdm
@@ -18,7 +18,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     image_dir = "dataset"
-    annotation_dir = "dataset/voc_annotations-usb"
+    annotation_dir = "dataset/voc_annotations/train_voc"
 
     # Rozszerzony pipeline augmentacji – usunięto parametry powodujące ostrzeżenia.
     augmentation_transform = A.Compose(
@@ -42,7 +42,7 @@ def main():
         num_workers=4,  # równoległe ładowanie danych
         collate_fn=collate_fn
     )
-
+    # lub get_model w zaleznosci czy uczymy juz uczone wagi czy nowy model
     model = get_model(num_classes).to(device)
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
@@ -74,7 +74,7 @@ def main():
         scheduler.step()
         print(f"Epoch {epoch+1}, Loss: {total_loss:.4f}")
 
-    torch.save(model.state_dict(), "models/trained_components/usb_faster_rcnn_pcb.pth")
+    torch.save(model.state_dict(), "models/trained_components/kondesator.pth")
     print("Model zapisany!")
 
 if __name__ == '__main__':

@@ -1,141 +1,217 @@
+# evaluate.py
+
 import os
 import json
 import torch
-import cv2
-import xml.etree.ElementTree as ET
 from torch.utils.data import DataLoader
-from models.faster_rcnn import get_model
-from utils.dataset_loader import PCBDataset
-from tqdm import tqdm
+import torchvision.transforms as T
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
-def create_coco_ground_truth(image_dir, annotation_dir):
+# Import Twojego datasetu i ewentualnej funkcji collate_fn
+from utils.dataset_loader import PCBDataset  # Dostosuj ścieżkę importu do swojego projektu
+
+###############################################################################
+# Funkcja, która tworzy domyślny model Faster R-CNN z ResNet50 FPN
+###############################################################################
+def get_default_model(num_classes: int):
+    import torchvision
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+    return model
+
+###############################################################################
+# Funkcja do wczytania wytrenowanych wag modelu
+###############################################################################
+def load_trained_model(model_path: str, num_classes: int, device: str = "cpu"):
+    model = get_default_model(num_classes)
+    model.to(device)
+
+    state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(state_dict)
+
+    model.eval()
+    return model
+
+###############################################################################
+# Funkcja collate_fn (jeśli jej potrzebujesz przy DataLoaderze)
+###############################################################################
+def collate_fn(batch):
+    return tuple(zip(*batch))
+
+###############################################################################
+# Funkcje pomocnicze do konwersji VOC -> COCO
+###############################################################################
+def voc_to_coco_format(all_targets, all_predictions, image_ids):
     """
-    Konwertuje adnotacje w formacie VOC do formatu COCO.
-    Zwraca słownik zawierający klucze: "images", "annotations", "categories".
+    Konwertuje listy ground truth i predykcji do formatu COCO.
+    - all_targets: lista słowników z kluczami {"boxes": np.ndarray, "labels": np.ndarray}
+    - all_predictions: lista słowników {"boxes": np.ndarray, "scores": np.ndarray, "labels": np.ndarray}
+    - image_ids: lista identyfikatorów obrazu (np. idx lub inna numeracja)
+    
+    Zwraca (coco_gt, coco_dt):
+    - coco_gt: słownik w formacie COCO z kluczami "images", "annotations", "categories"
+    - coco_dt: lista predykcji w formacie COCO (dict per detection)
     """
     coco_gt = {
         "images": [],
         "annotations": [],
-        "categories": [
-            {"id": 1, "name": "capacitor"}
-        ]
+        "categories": []
     }
-    ann_id = 1
-    image_files = [f for f in os.listdir(image_dir) if f.endswith(('.jpg', '.png'))]
-    # Uwzględniamy tylko obrazy, dla których istnieje adnotacja XML
-    image_files = [f for f in image_files if os.path.exists(os.path.join(annotation_dir, f.rsplit('.', 1)[0] + '.xml'))]
+    # Załóżmy, że masz jedną klasę obiektu (oprócz tła) => category_id=1
+    # Jeśli masz więcej klas, zdefiniuj je odpowiednio
+    coco_gt["categories"] = [{"id": 1, "name": "object"}]  # Dostosuj do liczby klas
     
-    for img_id, file_name in enumerate(image_files):
-        img_path = os.path.join(image_dir, file_name)
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
-        height, width = img.shape[:2]
+    ann_id = 1
+    for img_id, (tgt, image_id) in enumerate(zip(all_targets, image_ids)):
+        # Dodajemy informację o obrazie
         coco_gt["images"].append({
-            "id": img_id,
-            "file_name": file_name,
-            "width": width,
-            "height": height
+            "id": image_id,
+            "file_name": f"image_{image_id}.jpg",  # lub inna nazwa
+            "width": 0,   # można pominąć lub podać rzeczywiste wymiary
+            "height": 0
         })
+
+        boxes = tgt["boxes"]  # shape (N, 4) [xmin, ymin, xmax, ymax]
+        labels = tgt["labels"]  # shape (N,)
         
-        xml_file = os.path.join(annotation_dir, file_name.rsplit('.', 1)[0] + '.xml')
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-        for obj in root.findall("object"):
-            bbox = obj.find("bndbox")
-            xmin = int(bbox.find("xmin").text)
-            ymin = int(bbox.find("ymin").text)
-            xmax = int(bbox.find("xmax").text)
-            ymax = int(bbox.find("ymax").text)
-            box_width = xmax - xmin
-            box_height = ymax - ymin
-            
+        for i in range(len(boxes)):
+            xmin, ymin, xmax, ymax = boxes[i]
+            w = xmax - xmin
+            h = ymax - ymin
+            cat_id = int(labels[i])  # jeśli masz 1 klasę, to pewnie 1
+
             coco_gt["annotations"].append({
                 "id": ann_id,
-                "image_id": img_id,
-                "category_id": 1,  # Zakładamy jedną klasę: kondensator
-                "bbox": [xmin, ymin, box_width, box_height],
-                "area": box_width * box_height,
+                "image_id": image_id,
+                "category_id": cat_id,
+                "bbox": [float(xmin), float(ymin), float(w), float(h)],
+                "area": float(w * h),
                 "iscrowd": 0
             })
             ann_id += 1
-    return coco_gt
 
-def save_json(data, filename):
-    with open(filename, "w") as f:
-        json.dump(data, f)
+    # Predykcje w formacie COCO
+    coco_dt = []
+    for img_id, (pred, image_id) in enumerate(zip(all_predictions, image_ids)):
+        boxes = pred["boxes"]
+        scores = pred["scores"]
+        labels = pred["labels"]
+        
+        for i in range(len(boxes)):
+            xmin, ymin, xmax, ymax = boxes[i]
+            w = xmax - xmin
+            h = ymax - ymin
+            cat_id = int(labels[i])  # Dostosuj do liczby klas
 
-# Definicja globalnej funkcji collate_fn
-def collate_fn(batch):
-    return tuple(zip(*batch))
+            coco_dt.append({
+                "image_id": image_id,
+                "category_id": cat_id,
+                "bbox": [float(xmin), float(ymin), float(w), float(h)],
+                "score": float(scores[i])
+            })
+    return coco_gt, coco_dt
 
-# Aby móc przypisać image_id w wynikach inferencji, rozszerzamy nasz dataset
-class EvalDataset(PCBDataset):
-    def __getitem__(self, idx):
-        img, target = super().__getitem__(idx)
-        # Dodajemy image_id do target, które odpowiada indeksowi obrazu
-        target["image_id"] = idx
-        return img, target
+###############################################################################
+# GŁÓWNA CZĘŚĆ – INFERENCJA NA ZBIORZE WALIDACYJNYM + obliczanie mAP
+###############################################################################
+# Ścieżka do wytrenowanego modelu
+MODEL_PATH = "models/trained_components/kondesator.pth"
 
-def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    image_dir = "dataset"
-    annotation_dir = os.path.join("dataset", "voc_annotations-usb")
-    
-    # 1. Konwersja ground truth do formatu COCO
-    coco_gt = create_coco_ground_truth(image_dir, annotation_dir)
-    gt_filename = "gt_coco.json"
-    save_json(coco_gt, gt_filename)
-    print(f"Ground truth zapisane w {gt_filename}")
-    
-    # 2. Przygotowanie zbioru walidacyjnego (bez augmentacji)
-    eval_dataset = EvalDataset(image_dir, annotation_dir, augmentation_transform=None)
-    data_loader = DataLoader(eval_dataset, batch_size=4, shuffle=False, num_workers=4, collate_fn=collate_fn)
-    
-    # 3. Ładowanie modelu
-    num_classes = 2
-    model = get_model(num_classes)
-    model.load_state_dict(torch.load("models/trained_components/usb_faster_rcnn_pcb.pth", map_location=device))
-    model.to(device)
+# Liczba klas (np. 1 klasa obiektów + tło => num_classes=2)
+NUM_CLASSES = 2
+
+# Urządzenie (CPU / CUDA)
+DEVICE = "cuda"
+
+# Katalog z obrazami walidacyjnymi
+VAL_IMAGES_DIR = "dataset"
+# Katalog z plikami XML (VOC) walidacyjnymi
+VAL_ANNOTATIONS_DIR = "dataset/voc_annotations-uczelnia-pcb-kondestatory/val_voc"
+
+if __name__ == "__main__":
+    # 1. Ładujemy wytrenowany model
+    model = load_trained_model(MODEL_PATH, NUM_CLASSES, DEVICE)
+
+    # 2. Tworzymy dataset walidacyjny
+    val_dataset = PCBDataset(
+        image_dir=VAL_IMAGES_DIR,
+        annotation_dir=VAL_ANNOTATIONS_DIR,
+        augmentation_transform=None  # Walidacja bez augmentacji
+    )
+
+    # 3. DataLoader dla zbioru walidacyjnego
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=4,
+        shuffle=False,
+        num_workers=0,  # lub inna liczba wątków
+        collate_fn=collate_fn
+    )
+
     model.eval()
-    
-    # 4. Przeprowadzenie inferencji i zbieranie predykcji
-    predictions = []
+    all_predictions = []
+    all_targets = []
+    image_ids = []
+
     with torch.no_grad():
-        for images, targets in tqdm(data_loader, desc="Przeprowadzanie inferencji"):
-            images = [img.to(device) for img in images]
+        for idx, (images, targets) in enumerate(val_loader):
+            # Przykład: image_id = idx * batch_size + i
+            # Lepiej, jeśli Twój dataset ma stałe ID dla każdego obrazka
+            # W dataset_loader możesz dodać np. target["image_id"] = idx
+            # i tu go pobierać
+            batch_size_here = len(images)
+            for i in range(batch_size_here):
+                # image_id to unikalny identyfikator dla COCO
+                image_id = idx * batch_size_here + i
+                image_ids.append(image_id)
+
+            images = [img.to(DEVICE) for img in images]
             outputs = model(images)
-            for idx, output in enumerate(outputs):
-                image_id = targets[idx]["image_id"]
-                boxes = output["boxes"].cpu().numpy().tolist()
-                scores = output["scores"].cpu().numpy().tolist()
-                labels = output["labels"].cpu().numpy().tolist()
-                for box, score, label in zip(boxes, scores, labels):
-                    if score < 0.05:
-                        continue
-                    # Konwersja z [xmin, ymin, xmax, ymax] do [xmin, ymin, width, height]
-                    xmin, ymin, xmax, ymax = box
-                    width = xmax - xmin
-                    height = ymax - ymin
-                    predictions.append({
-                        "image_id": image_id,
-                        "category_id": int(label),
-                        "bbox": [xmin, ymin, width, height],
-                        "score": score
-                    })
-    pred_filename = "predictions.json"
-    save_json(predictions, pred_filename)
-    print(f"Predykcje zapisane w {pred_filename}")
-    
-    # 5. Ocena modelu za pomocą pycocotools
-    coco_gt_api = COCO(gt_filename)
-    coco_dt = coco_gt_api.loadRes(pred_filename)
-    coco_eval = COCOeval(coco_gt_api, coco_dt, iouType="bbox")
+
+            # Zapisujemy wyniki
+            for out, tgt in zip(outputs, targets):
+                pred_boxes = out["boxes"].cpu().numpy()
+                pred_scores = out["scores"].cpu().numpy()
+                pred_labels = out["labels"].cpu().numpy()
+
+                true_boxes = tgt["boxes"].cpu().numpy()
+                true_labels = tgt["labels"].cpu().numpy()
+
+                all_predictions.append({
+                    "boxes": pred_boxes,
+                    "scores": pred_scores,
+                    "labels": pred_labels
+                })
+                all_targets.append({
+                    "boxes": true_boxes,
+                    "labels": true_labels
+                })
+
+    print(f"Liczba przetworzonych obrazów: {len(all_predictions)}")
+
+    # 6. (NOWOŚĆ) Oblicz metryki (mAP) z użyciem pycocotools
+    #    Konwertujemy VOC -> COCO, a potem wywołujemy COCOeval
+    coco_gt_dict, coco_dt_list = voc_to_coco_format(all_targets, all_predictions, image_ids)
+
+    # Zapisujemy do plików .json
+    with open("gt_coco.json", "w") as f:
+        json.dump(coco_gt_dict, f)
+    with open("pred_coco.json", "w") as f:
+        json.dump(coco_dt_list, f)
+
+    # Ładujemy ground truth
+    coco_gt_api = COCO("gt_coco.json")
+    # Ładujemy predykcje
+    coco_dt_api = coco_gt_api.loadRes("pred_coco.json")
+
+    # Tworzymy obiekt COCOeval
+    coco_eval = COCOeval(coco_gt_api, coco_dt_api, iouType="bbox")
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()
 
-if __name__ == "__main__":
-    main()
+    # Wyświetlane zostaną m.in. AP@[0.5:0.95], AP@0.5, AP@0.75, AR itd.
+    print("Ewaluacja (mAP) zakończona!")
