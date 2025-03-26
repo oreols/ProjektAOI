@@ -1,11 +1,16 @@
 import torch
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.rpn import AnchorGenerator
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
+from torchvision.models.detection import FasterRCNN
 
 # Ustawienia „na sztywno”
 MODEL_PATH = "models/trained_components/final_capacitor_faster_rcnn_pcb.pth"  # Ścieżka do pliku z wagami
 NUM_CLASSES = 2  # Liczba klas (1 klasa obiektów + tło)
 DEVICE = "cuda"   # Lub "cuda" jeśli masz GPU z zainstalowanym PyTorch z obsługą CUDA
+
+
 
 def get_model(num_classes: int):
     """
@@ -13,7 +18,12 @@ def get_model(num_classes: int):
     z wstępnie wytrenowanymi wagami na COCO.
     Modyfikuje warstwę końcową (box_predictor) pod liczbę klas.
     """
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+
+
+    # model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(weights="DEFAULT")
+    # model = torchvision.models.detection.fasterrcnn_resnet101_fpn(weights="DEFAULT",  rpn_anchor_generator=anchor_generator)
+
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
     return model

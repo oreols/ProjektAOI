@@ -118,7 +118,7 @@ def voc_to_coco_format(all_targets, all_predictions, image_ids):
 # GŁÓWNA CZĘŚĆ – INFERENCJA NA ZBIORZE WALIDACYJNYM + obliczanie mAP
 ###############################################################################
 # Ścieżka do wytrenowanego modelu
-MODEL_PATH = "models/trained_components/kondesator.pth"
+MODEL_PATH = "final_model.pth"
 
 # Liczba klas (np. 1 klasa obiektów + tło => num_classes=2)
 NUM_CLASSES = 2
@@ -129,7 +129,7 @@ DEVICE = "cuda"
 # Katalog z obrazami walidacyjnymi
 VAL_IMAGES_DIR = "dataset"
 # Katalog z plikami XML (VOC) walidacyjnymi
-VAL_ANNOTATIONS_DIR = "dataset/voc_annotations-uczelnia-pcb-kondestatory/val_voc"
+VAL_ANNOTATIONS_DIR = "dataset/voc_annotations/val_voc"
 
 if __name__ == "__main__":
     # 1. Ładujemy wytrenowany model

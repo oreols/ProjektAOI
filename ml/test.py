@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 from models.faster_rcnn import get_model
 
 # Poprawione ścieżki do katalogów
-image_path = r"C:\Users\Marek\Downloads\a.png"  
-model_path = "models/trained_components/usb_faster_rcnn_pcb.pth"
-# model_path = "best_model.pth"
- 
+image_path = "test.png"  
+model_path = "models/trained_components/capacitors/resnet50v2_model_epoch_78_mAP_0.278.pth"
+
 num_classes = 2
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -29,7 +28,7 @@ img_tensor = img_tensor.unsqueeze(0).to(device)  # Dodanie wymiaru batch i przen
 with torch.no_grad():
     prediction = model(img_tensor)[0]
 
-def visualize(image, prediction, threshold=0.5):
+def visualize(image, prediction, threshold=0.8):
     """
     Wizualizacja wykrytych obiektów.
     - image: obraz w formacie tensorowym
@@ -45,7 +44,7 @@ def visualize(image, prediction, threshold=0.5):
             x1, y1, x2, y2 = map(int, box.cpu().numpy())  # Konwersja na int
             count += 1  # Zliczanie obiektów
             plt.gca().add_patch(plt.Rectangle((x1, y1), x2 - x1, y2 - y1, edgecolor='red', linewidth=2, fill=False))
-            plt.text(x1, y1 - 5, f'IC/U: {score:.2f}', color='red', fontsize=8, bbox=dict(facecolor='white', alpha=0.5))
+            plt.text(x1, y1 - 5, f'Kondesator: {score:.2f}', color='red', fontsize=8, bbox=dict(facecolor='white', alpha=0.5))
 
     print(f"Liczba wykrytych obiektów: {count}")
     plt.axis("off")
