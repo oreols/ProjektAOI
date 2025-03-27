@@ -1,0 +1,1 @@
+<annotation><folder /><filename>bb80bf1e-104.jpg</filename><path>dataset/inductor-jpg/bb80bf1e-104.jpg</path><size><width>800</width><height>488</height><depth>3</depth></size><object><name>Induktor</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>558</xmin><ymin>103</ymin><xmax>664</xmax><ymax>208</ymax></bndbox></object></annotation>

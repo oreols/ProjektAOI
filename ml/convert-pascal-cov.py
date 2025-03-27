@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from tqdm import tqdm
 from PIL import Image
 
-def labelme_to_voc(labelme_folder, output_folder):
+def labelme_to_voc(labelme_folder, image_folder, output_folder):
     os.makedirs(output_folder, exist_ok=True)
 
     for json_file in tqdm(os.listdir(labelme_folder)):
@@ -17,20 +17,26 @@ def labelme_to_voc(labelme_folder, output_folder):
 
         # Pobranie informacji o obrazie
         image_name = data["imagePath"]
-        image_path = os.path.join(labelme_folder, image_name)
-        image = Image.open(image_path)
-        width, height = image.size
+        image_name = os.path.basename(image_name)  # Usuwa błędne ścieżki
+        image_path = os.path.join(image_folder, image_name)  # Ścieżka do obrazów w folderze 'inductor-jpg'
+
+        try:
+            image = Image.open(image_path)
+            width, height = image.size
+        except FileNotFoundError:
+            print(f"Nie znaleziono obrazu: {image_path}")
+            continue
 
         # Tworzenie struktury XML
         annotation = ET.Element("annotation")
-        ET.SubElement(annotation, "folder").text = labelme_folder
+        ET.SubElement(annotation, "folder").text = os.path.basename(image_folder)
         ET.SubElement(annotation, "filename").text = image_name
         ET.SubElement(annotation, "path").text = image_path
 
         size = ET.SubElement(annotation, "size")
         ET.SubElement(size, "width").text = str(width)
         ET.SubElement(size, "height").text = str(height)
-        ET.SubElement(size, "depth").text = "3"
+        ET.SubElement(size, "depth").text = "3"  # Zakładając, że obrazy są kolorowe (RGB)
 
         for shape in data["shapes"]:
             obj = ET.SubElement(annotation, "object")
@@ -59,6 +65,8 @@ def labelme_to_voc(labelme_folder, output_folder):
     print(f"Konwersja zakończona! Pliki zapisane w {output_folder}")
 
 # Przykładowe użycie
-labelme_folder = "dataset/labels/"
-output_folder = "dataset/voc_annotations/"
-labelme_to_voc(labelme_folder, output_folder)
+labelme_folder = "dataset/labels-inductor/"   # Folder z plikami JSON
+image_folder = "dataset/inductor-jpg/"        # Folder z obrazami
+output_folder = "dataset/voc_annotations-inductor/"  # Folder do zapisania wyników
+
+labelme_to_voc(labelme_folder, image_folder, output_folder)

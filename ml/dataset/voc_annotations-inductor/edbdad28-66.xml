@@ -1,1 +1,0 @@
-<annotation><folder /><filename>edbdad28-66.jpg</filename><path>dataset/inductor-jpg/edbdad28-66.jpg</path><size><width>270</width><height>441</height><depth>3</depth></size><object><name>Induktor</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>13</xmin><ymin>20</ymin><xmax>222</xmax><ymax>413</ymax></bndbox></object></annotation>
