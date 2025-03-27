@@ -1,0 +1,26 @@
+<annotation>
+	<folder>img_new</folder>
+	<filename>IMG_3679.jpg</filename>
+	<path>C:\Users\Karolina\Desktop\img_new\IMG_3679.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>2775</width>
+		<height>1887</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>resonator</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1432</xmin>
+			<ymin>643</ymin>
+			<xmax>1539</xmax>
+			<ymax>844</ymax>
+		</bndbox>
+	</object>
+</annotation>

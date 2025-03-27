@@ -1,0 +1,62 @@
+<annotation>
+	<folder>train</folder>
+	<filename>cropped_SystemAce_Top_jpg.rf.66d21c249284efff9e8d74d4d47ba9ec.jpg</filename>
+	<path>C:\Users\User\Downloads\train\cropped_SystemAce_Top_jpg.rf.66d21c249284efff9e8d74d4d47ba9ec.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>2047</width>
+		<height>1343</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tranzystor</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1114</xmin>
+			<ymin>280</ymin>
+			<xmax>1214</xmax>
+			<ymax>341</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>tact switch</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>544</xmin>
+			<ymin>605</ymin>
+			<xmax>604</xmax>
+			<ymax>664</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>tact switch</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>896</xmin>
+			<ymin>978</ymin>
+			<xmax>952</xmax>
+			<ymax>1035</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>tact switch</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>972</xmin>
+			<ymin>765</ymin>
+			<xmax>1032</xmax>
+			<ymax>827</ymax>
+		</bndbox>
+	</object>
+</annotation>

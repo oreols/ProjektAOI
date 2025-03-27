@@ -1,0 +1,26 @@
+<annotation>
+	<folder>cały_dataset</folder>
+	<filename>OlimexRed.jpg</filename>
+	<path>C:\Users\Karolina\Desktop\cały_dataset\OlimexRed.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>4000</width>
+		<height>2500</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>jumper</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>2278</xmin>
+			<ymin>1793</ymin>
+			<xmax>2505</xmax>
+			<ymax>1895</ymax>
+		</bndbox>
+	</object>
+</annotation>

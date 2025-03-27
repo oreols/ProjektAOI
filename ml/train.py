@@ -132,15 +132,15 @@ def evaluate_model(model, val_loader, device):
 if __name__ == "__main__":
     # Parametry treningu
     num_classes = 2  
-    num_epochs = 100   
+    num_epochs = 50
     batch_size = 4
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Ścieżki do treningu i walidacji
-    train_image_dir = "dataset"
-    train_annotation_dir = "dataset/voc_annotations/train_voc"
-    val_image_dir = "dataset"
-    val_annotation_dir = "dataset/voc_annotations/val_voc"
+    train_image_dir = "dataset/nieprzyciete"
+    train_annotation_dir = "dataset/voc_annotations-usb/train_voc"
+    val_image_dir = "dataset/nieprzyciete"
+    val_annotation_dir = "dataset/voc_annotations-usb/val_voc"
 
     # Zwiększamy intensywność augmentacji: RandomScale, Rotate
     train_transform = A.Compose(
@@ -240,7 +240,7 @@ if __name__ == "__main__":
         # Zapis modelu, jeśli lepszy
         if mAP > best_map:
             best_map = mAP
-            torch.save(model.state_dict(), f"models/trained_components/capacitors/resnet101_best_model2_epoch_{epoch+1}_mAP_{mAP:.3f}.pth")
+            torch.save(model.state_dict(), f"models/trained_components/usb/usb_resnet50v2_model_epoch_{epoch+1}_mAP_{mAP:.3f}.pth")
             print(f"[INFO] Nowy najlepszy model zapisany (mAP={mAP:.3f})!")
 
     print("[INFO] Trening zakończony!")
