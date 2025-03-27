@@ -1,0 +1,50 @@
+<annotation>
+	<folder>train</folder>
+	<filename>cropped_MicroZed_Top_jpg.rf.fd5892d94a67b5e10b7da5dcf98712ad.jpg</filename>
+	<path>C:\Users\User\Downloads\train\cropped_MicroZed_Top_jpg.rf.fd5892d94a67b5e10b7da5dcf98712ad.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>2047</width>
+		<height>1103</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tranzystor</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>751</xmin>
+			<ymin>227</ymin>
+			<xmax>818</xmax>
+			<ymax>290</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>tact switch</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1253</xmin>
+			<ymin>928</ymin>
+			<xmax>1355</xmax>
+			<ymax>1038</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>tact switch</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1252</xmin>
+			<ymin>57</ymin>
+			<xmax>1349</xmax>
+			<ymax>183</ymax>
+		</bndbox>
+	</object>
+</annotation>
