@@ -1,0 +1,1 @@
+<annotation><folder>dataset</folder><filename>Virtex5.jpg</filename><size><width>3342</width><height>3126</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>2506</xmin><ymin>676</ymin><xmax>2767</xmax><ymax>1287</ymax></bndbox></object></annotation>
