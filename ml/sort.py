@@ -7,18 +7,18 @@ import shutil
 """
 
 # Katalog z oryginalnymi obrazami
-all_images_dir = "dataset/voc_annotations"  # Zmień na swoją ścieżkę
+all_images_dir = "dataset/voc_annotations-connector"  # Zmień na swoją ścieżkę
 
 # Katalogi docelowe
-train_dir = "dataset/voc_annotations/train_voc"
-val_dir = "dataset/voc_annotations/val_voc"
+train_dir = "dataset/voc_annotations-connector/train_voc"
+val_dir = "dataset/voc_annotations-connector/val_voc"
 
 # Tworzymy katalogi docelowe (jeśli jeszcze nie istnieją)
 os.makedirs(train_dir, exist_ok=True)
 os.makedirs(val_dir, exist_ok=True)
 
 # Lista wszystkich plików w katalogu z obrazami
-all_files = [f for f in os.listdir(all_images_dir) if f.lower().endswith(('.xml', '.png'))]
+all_files = [f for f in os.listdir(all_images_dir) if f.lower().endswith(('.xml'))]
 
 # Mieszamy listę losowo, aby podział był przypadkowy
 random.shuffle(all_files)

@@ -5,7 +5,7 @@ from models.faster_rcnn import get_model
 
 # Poprawione ścieżki do katalogów
 image_path = "test.png"  
-model_path = "models/trained_components/jumpers/jumpers_resnet50v2_model_epoch_49_mAP_0.469.pth"
+model_path = "models/trained_components/capacitors/best_model_epoch_5_mAP_0.200.pth"
 
 num_classes = 2
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,7 +28,7 @@ img_tensor = img_tensor.unsqueeze(0).to(device)  # Dodanie wymiaru batch i przen
 with torch.no_grad():
     prediction = model(img_tensor)[0]
 
-def visualize(image, prediction, threshold=0.8):
+def visualize(image, prediction, threshold=0.5):
     """
     Wizualizacja wykrytych obiektów.
     - image: obraz w formacie tensorowym

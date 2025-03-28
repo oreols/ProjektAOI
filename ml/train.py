@@ -132,15 +132,15 @@ def evaluate_model(model, val_loader, device):
 if __name__ == "__main__":
     # Parametry treningu
     num_classes = 2  
-    num_epochs = 50
+    num_epochs = 100   
     batch_size = 4
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Ścieżki do treningu i walidacji
     train_image_dir = "dataset/nieprzyciete"
-    train_annotation_dir = "dataset/voc_annotations-usb/train_voc"
+    train_annotation_dir = "dataset/voc_annotations/train_voc"
     val_image_dir = "dataset/nieprzyciete"
-    val_annotation_dir = "dataset/voc_annotations-usb/val_voc"
+    val_annotation_dir = "dataset/voc_annotations/val_voc"
 
     # Zwiększamy intensywność augmentacji: RandomScale, Rotate
     train_transform = A.Compose(
@@ -151,6 +151,7 @@ if __name__ == "__main__":
             A.Rotate(limit=15, p=0.5),
             A.HorizontalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.3),
+            A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=5, val_shift_limit=5, p=0.1),
             ToTensorV2()
         ],
         bbox_params=A.BboxParams(
@@ -202,7 +203,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(params, lr=1e-4, weight_decay=1e-4)
     # Scheduler - zmniejszamy LR co 10 epok
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30, eta_min=1e-6)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=1e-6)
     
     scaler = GradScaler(enabled=(device.type == 'cuda'))
 
@@ -237,10 +238,13 @@ if __name__ == "__main__":
         mAP = evaluate_model(model, val_loader, device)
         print(f"[INFO] mAP (IoU=0.50:0.95) after epoch {epoch+1}: {mAP:.3f}")
 
+        with open("models/trained_components/capacitors/training_metrics.txt", "a") as f:
+            f.write(f"{epoch+1},{avg_loss:.4f},{mAP:.3f}\n")
+
         # Zapis modelu, jeśli lepszy
         if mAP > best_map:
             best_map = mAP
-            torch.save(model.state_dict(), f"models/trained_components/usb/usb_resnet50v2_model_epoch_{epoch+1}_mAP_{mAP:.3f}.pth")
+            torch.save(model.state_dict(), f"models/trained_components/capacitors/capacitors_resnet50v2_model_epoch_{epoch+1}_mAP_{mAP:.3f}.pth")
             print(f"[INFO] Nowy najlepszy model zapisany (mAP={mAP:.3f})!")
 
     print("[INFO] Trening zakończony!")
