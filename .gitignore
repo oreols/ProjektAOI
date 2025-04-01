@@ -1,3 +1,5 @@
 myenv/ 
 ml/models/trained_components/
 ml/dataset/nieprzyciete/
+db_config.py
+gui/models

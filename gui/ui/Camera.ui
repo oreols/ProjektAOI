@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1200</width>
-    <height>800</height>
+    <width>1400</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,124 +18,19 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1200</width>
-     <height>800</height>
+     <width>1400</width>
+     <height>900</height>
     </rect>
    </property>
    <property name="styleSheet">
     <string notr="true">background-color: rgb(210, 208, 208);</string>
    </property>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>489</y>
-      <width>500</width>
-      <height>301</height>
-     </rect>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>500</width>
-      <height>350</height>
-     </size>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">background-color: rgb(148, 176, 182);
-border-radius:20px;</string>
-    </property>
-    <property name="text">
-     <string/>
-    </property>
-   </widget>
-   <widget class="QTableWidget" name="tableWidget">
-    <property name="geometry">
-     <rect>
-      <x>700</x>
-      <y>530</y>
-      <width>471</width>
-      <height>231</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>120</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="sizeIncrement">
-     <size>
-      <width>120</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="baseSize">
-     <size>
-      <width>120</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 63 12pt &quot;Segoe UI Semibold&quot;;</string>
-    </property>
-    <property name="midLineWidth">
-     <number>0</number>
-    </property>
-    <property name="iconSize">
-     <size>
-      <width>120</width>
-      <height>0</height>
-     </size>
-    </property>
-    <attribute name="horizontalHeaderDefaultSectionSize">
-     <number>160</number>
-    </attribute>
-    <attribute name="horizontalHeaderMinimumSectionSize">
-     <number>160</number>
-    </attribute>
-    <attribute name="verticalHeaderDefaultSectionSize">
-     <number>38</number>
-    </attribute>
-    <attribute name="verticalHeaderMinimumSectionSize">
-     <number>38</number>
-    </attribute>
-    <row>
-     <property name="text">
-      <string>wykrycie elementu</string>
-     </property>
-    </row>
-    <row>
-     <property name="text">
-      <string>prawidłowe położenie elementu</string>
-     </property>
-    </row>
-    <row>
-     <property name="text">
-      <string>prawidłowa orientacja elementu</string>
-     </property>
-    </row>
-    <row>
-     <property name="text">
-      <string>prawidłowe wymiary elementu</string>
-     </property>
-    </row>
-    <row>
-     <property name="text">
-      <string>brak zanieczyszczeń</string>
-     </property>
-    </row>
-    <column>
-     <property name="text">
-      <string>wynik</string>
-     </property>
-    </column>
-   </widget>
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>840</x>
-      <y>490</y>
-      <width>191</width>
+      <x>960</x>
+      <y>580</y>
+      <width>251</width>
       <height>31</height>
      </rect>
     </property>
@@ -152,9 +47,9 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="analyze_button">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>630</y>
-      <width>561</width>
+      <x>230</x>
+      <y>730</y>
+      <width>211</width>
       <height>28</height>
      </rect>
     </property>
@@ -165,9 +60,9 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="start_button">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>490</y>
-      <width>191</width>
+      <x>550</x>
+      <y>730</y>
+      <width>91</width>
       <height>28</height>
      </rect>
     </property>
@@ -180,8 +75,8 @@ background-color: rgb(148, 176, 182);
      <rect>
       <x>20</x>
       <y>10</y>
-      <width>1111</width>
-      <height>471</height>
+      <width>1280</width>
+      <height>720</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -195,21 +90,21 @@ background-color: rgb(148, 176, 182);
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>530</y>
-      <width>561</width>
+      <y>730</y>
+      <width>201</width>
       <height>28</height>
      </rect>
     </property>
     <property name="text">
-     <string>Wybierz wirtualną kamerę</string>
+     <string>Włącz wirtualną kamerę</string>
     </property>
    </widget>
    <widget class="QPushButton" name="stop_button">
     <property name="geometry">
      <rect>
-      <x>390</x>
-      <y>490</y>
-      <width>191</width>
+      <x>450</x>
+      <y>730</y>
+      <width>91</width>
       <height>28</height>
      </rect>
     </property>
@@ -220,9 +115,9 @@ background-color: rgb(148, 176, 182);
    <widget class="QPushButton" name="record_button">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>680</y>
-      <width>561</width>
+      <x>650</x>
+      <y>730</y>
+      <width>111</width>
       <height>28</height>
      </rect>
     </property>
@@ -233,8 +128,8 @@ background-color: rgb(148, 176, 182);
    <widget class="QComboBox" name="component">
     <property name="geometry">
      <rect>
-      <x>260</x>
-      <y>570</y>
+      <x>210</x>
+      <y>780</y>
       <width>321</width>
       <height>41</height>
      </rect>
@@ -243,9 +138,9 @@ background-color: rgb(148, 176, 182);
    <widget class="QLabel" name="label_3">
     <property name="geometry">
      <rect>
-      <x>100</x>
-      <y>570</y>
-      <width>161</width>
+      <x>20</x>
+      <y>780</y>
+      <width>181</width>
       <height>31</height>
      </rect>
     </property>
@@ -259,8 +154,8 @@ background-color: rgb(148, 176, 182);
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
-      <x>60</x>
-      <y>740</y>
+      <x>20</x>
+      <y>840</y>
       <width>201</width>
       <height>16</height>
      </rect>
@@ -273,8 +168,8 @@ background-color: rgb(148, 176, 182);
     <property name="geometry">
      <rect>
       <x>220</x>
-      <y>740</y>
-      <width>141</width>
+      <y>840</y>
+      <width>55</width>
       <height>16</height>
      </rect>
     </property>
@@ -282,6 +177,31 @@ background-color: rgb(148, 176, 182);
      <string/>
     </property>
    </widget>
+   <widget class="QListWidget" name="component_list">
+    <property name="geometry">
+     <rect>
+      <x>800</x>
+      <y>740</y>
+      <width>256</width>
+      <height>121</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(255, 170, 127);</string>
+    </property>
+   </widget>
+   <zorder>label_2</zorder>
+   <zorder>cap</zorder>
+   <zorder>analyze_button</zorder>
+   <zorder>start_button</zorder>
+   <zorder>virtual_cam_button</zorder>
+   <zorder>stop_button</zorder>
+   <zorder>record_button</zorder>
+   <zorder>component</zorder>
+   <zorder>label_3</zorder>
+   <zorder>label_4</zorder>
+   <zorder>count_elements</zorder>
+   <zorder>component_list</zorder>
   </widget>
  </widget>
  <resources/>

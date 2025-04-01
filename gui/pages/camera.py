@@ -1,26 +1,31 @@
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
-import sys
 import cv2
 import os
-from PyQt5.QtWidgets import QDialog, QLabel, QApplication, QMessageBox, QFileDialog
+from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget
 import torchvision
 import torch
 from PyQt5.QtCore import QTimer
+from models.faster_rcnn import get_model
 
 class Camera(QDialog):
     def __init__(self):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         loadUi("ui/Camera.ui", self)
         self.setGeometry(100, 100, 1200, 800)
         self.cap_label = self.findChild(QLabel, "cap")
+        self.bboxes = []  # Inicjalizacja listy wykrytych obiektów
+        self.component_list.itemClicked.connect(self.highlight_bbox)
+
+
 
         self.model_paths = {
-            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/final_capacitor_faster_rcnn_pcb.pth")),
-            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/ic_faster_rcnn_pcb.pth")),
-            "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_faster_rcnn_pcb.pth")),
-            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_faster_rcnn_pcb.pth")),
-            "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/quartz_resonator_faster_rcnn_pcb.pth")),
+            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/best_model_epoch_68_mAP_0.282.pth")),
+            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/ic_resnet50v2_model_epoch_12_mAP_0.648.pth")),
+            "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_resnet50v2_model_epoch_49_mAP_0.469.pth")),
+            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_resnet50v2_model_epoch_9_mAP_0.799.pth")),
+            "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/resonator_resnet50v2_model_epoch_23_mAP_0.820.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -52,16 +57,28 @@ class Camera(QDialog):
         self.component.addItem("USB")
         self.component.addItem("Rezonator kwarcowy")
 
-    def load_model(self, model_path):
-            if os.path.exists(model_path):
-                self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-                self.model.eval()
-                print(f"Załadowano model: {model_path}")
-            else:
-                QMessageBox.critical(self, "Błąd", f"Nie znaleziono modelu: {model_path}")
 
-        # Podpięcie wyboru komponentu do zmiany modelu:
-            self.component.currentTextChanged.connect(self.change_model)
+
+    def load_model(self, model_path):
+        if os.path.exists(model_path):
+            state_dict = torch.load(model_path, map_location=self.device)
+
+            try:
+                # Użyj tej samej funkcji co w test.py
+                self.model = get_model(2).to(self.device)  # num_classes=2
+                self.model.load_state_dict(state_dict, strict=False)
+            except RuntimeError as e:
+                print("\n❌ Błąd podczas ładowania state_dict:")
+                print(e)
+                QMessageBox.critical(self, "Błąd", f"Problem z załadowaniem modelu:\n{e}")
+                return
+
+
+            self.model.eval()
+            print(f"\nZaładowano model: {model_path}")
+        else:
+            QMessageBox.critical(self, "Błąd", f"Nie znaleziono modelu: {model_path}")
+
 
     def change_model(self, selected_component):
         if selected_component in self.model_paths:
@@ -190,15 +207,20 @@ class Camera(QDialog):
         with torch.no_grad():
             predictions = self.model(tensor_frame)[0]
 
+        detections = []  # Lista wykrytych obiektów
         count = 0
+
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
-            if score > 0.8:
+            if score > 0.7:
                 count += 1
                 x1, y1, x2, y2 = map(int, box.tolist())
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, f"{label}: {score:.2f}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+                # Dodajemy obiekt do listy detections
+                detections.append({"id": f"ID: {count}", "bbox": (x1, y1, x2, y2), "score": float(score.item())})
+
         self.count_elements.setText(f"{count}")
-        return frame
+        return frame, detections  # Zwracamy zmodyfikowaną klatkę oraz detekcje
+
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -211,11 +233,18 @@ class Camera(QDialog):
         original_frame = frame.copy()
 
         if self.analyze:
-            frame = self.detect_components(original_frame)
+            frame, detections = self.detect_components(original_frame)  # Pobieramy detekcje
+            self.update_component_list(detections)  # Aktualizujemy listę ID komponentów
         else:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Rozciąganie obrazu do pełnych wymiarów labela cap
+        # Rysowanie bounding boxów z listy bboxes
+        for bbox in self.bboxes:
+            x1, y1, x2, y2 = bbox["bbox"]
+            color = bbox["color"]
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            #cv2.putText(frame, bbox["id"], (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
         frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
 
         h, w, ch = frame.shape
@@ -226,6 +255,40 @@ class Camera(QDialog):
         if self.recording and self.video_writer:
             bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             self.video_writer.write(bgr_frame)
+
+
+    def update_component_list(self, detections):
+        """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów"""
+        self.component_list.clear()  # Czyści starą listę
+        self.bboxes = []  # Lista boxów
+
+        for i,detection in enumerate(detections):
+            x1, y1, x2, y2 = detection["bbox"]
+            id_ = f"ID:{i+1}|Score: {detection['score']:.2f}"
+            self.component_list.addItem(id_)  # Dodajemy ID do listy 
+
+            # Dodajemy bbox do listy z domyślnym kolorem
+            self.bboxes.append({"id": id_, "bbox": (x1, y1, x2, y2), "color": (0, 255, 0), "score": detection["score"]})  # czerwony
+
+
+    def highlight_bbox(self, item):
+        """Zmienia kolor bounding boxa po kliknięciu w ID na liście"""
+        clicked_id = item.text()  # Pobieramy ID
+
+        updated = False  # Flaga sprawdzająca, czy znaleziono ID
+        for bbox in self.bboxes:
+            if bbox["id"] == clicked_id:
+                bbox["color"] = (255, 0, 0)  # Zmień kolor na zielony
+                updated = True
+            if bbox["id"] != clicked_id:
+                bbox["color"] = (0, 255, 0)
+
+        if updated:
+            self.update_frame()  # Odśwież kamerę
+            self.cap_label.repaint()  # Wymuś ponowne narysowanie
+
+
+
 
     def closeEvent(self, event):
         self.stop_camera()
