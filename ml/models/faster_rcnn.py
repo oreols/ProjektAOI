@@ -19,11 +19,9 @@ def get_model(num_classes: int):
     Modyfikuje warstwę końcową (box_predictor) pod liczbę klas.
     """
 
-
     # model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(weights="DEFAULT")
-    # model = torchvision.models.detection.fasterrcnn_resnet101_fpn(weights="DEFAULT",  rpn_anchor_generator=anchor_generator)
-
+    # model.rpn.anchor_generator = anchor_generator
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
     return model

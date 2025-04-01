@@ -1,0 +1,26 @@
+<annotation>
+	<folder>cały_dataset</folder>
+	<filename>1.jpg</filename>
+	<path>C:\Users\Karolina\Desktop\cały_dataset\1.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>640</width>
+		<height>481</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>resistor</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>379</xmin>
+			<ymin>143</ymin>
+			<xmax>439</xmax>
+			<ymax>336</ymax>
+		</bndbox>
+	</object>
+</annotation>

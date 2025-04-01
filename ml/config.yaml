@@ -1,0 +1,36 @@
+project:
+  name: "pcb_aoi_detection"
+  component: "capacitor"
+
+data:
+  train_images: "dataset/nieprzyciete"
+  train_annotations: "dataset/voc_annotations/train_voc"
+  val_images: "dataset/nieprzyciete"
+  val_annotations: "dataset/voc_annotations/val_voc"
+
+model:
+  architecture: "fasterrcnn_resnet50_fpn_v2"
+  num_classes: 2
+  weights_path: null
+
+training:
+  epochs: 100
+  batch_size: 4
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  t_max: 100
+  eta_min: 0.000001
+  num_workers: 2
+
+augmentation:
+  image_size: 1024
+  min_visibility: 0.2
+  rotate_limit: 15
+  scale_limit: 0.2
+
+logging:
+  metrics_file: "logs/training_metrics.csv"
+  save_best_model: true
+  model_save_dir: "models/trained_components/capacitors"
+  scripted_model_path: "models/exported/scripted_model.pt"

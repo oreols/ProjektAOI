@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<annotation><folder>dataset</folder><filename>IMG_3702.jpg</filename><path>dataset\IMG_3702.jpg</path><source><database>Unknown</database></source><size><width>2629</width><height>2084</height><depth>3</depth></size><segmented>0</segmented><object><name>tranzystor</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>1136</xmin><ymin>1440</ymin><xmax>1268</xmax><ymax>1562</ymax></bndbox></object></annotation>
