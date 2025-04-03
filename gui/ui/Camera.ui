@@ -67,7 +67,7 @@ background-color: rgb(148, 176, 182);
      </rect>
     </property>
     <property name="text">
-     <string>start</string>
+     <string>kamera</string>
     </property>
    </widget>
    <widget class="QLabel" name="cap">
@@ -109,7 +109,7 @@ background-color: rgb(148, 176, 182);
      </rect>
     </property>
     <property name="text">
-     <string>stop</string>
+     <string>stop obraz</string>
     </property>
    </widget>
    <widget class="QPushButton" name="record_button">
@@ -190,6 +190,19 @@ background-color: rgb(148, 176, 182);
      <string notr="true">background-color: rgb(255, 170, 127);</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="clear_image_button">
+    <property name="geometry">
+     <rect>
+      <x>650</x>
+      <y>760</y>
+      <width>111</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>wyczyść</string>
+    </property>
+   </widget>
    <zorder>label_2</zorder>
    <zorder>cap</zorder>
    <zorder>analyze_button</zorder>
@@ -202,6 +215,7 @@ background-color: rgb(148, 176, 182);
    <zorder>label_4</zorder>
    <zorder>count_elements</zorder>
    <zorder>component_list</zorder>
+   <zorder>clear_image_button</zorder>
   </widget>
  </widget>
  <resources/>

@@ -7,6 +7,7 @@ import torchvision
 import torch
 from PyQt5.QtCore import QTimer
 from models.faster_rcnn import get_model
+import urllib.request
 
 class Camera(QDialog):
     def __init__(self):
@@ -18,6 +19,9 @@ class Camera(QDialog):
         self.bboxes = []  # Inicjalizacja listy wykrytych obiektów
         self.component_list.itemClicked.connect(self.highlight_bbox)
 
+        self.frozen = False  # Dodaj tę linię
+        self.frozen_frame = None  # Przechowa zamrożoną klatkę
+
 
 
         self.model_paths = {
@@ -26,6 +30,10 @@ class Camera(QDialog):
             "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_resnet50v2_model_epoch_49_mAP_0.469.pth")),
             "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_resnet50v2_model_epoch_9_mAP_0.799.pth")),
             "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/resonator_resnet50v2_model_epoch_23_mAP_0.820.pth")),
+            "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/best_model_epoch_65_mAP_0.316.pth")),
+            "Cewka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/cewka_80_mAP_0.760.pth")),
+            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/connectors_resnet50v2_model_epoch_58_mAP_0.650.pth")),
+            "Tranzystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/transistors-tactswitches_resnet50v2_model_epoch_21_mAP_0.755.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -51,11 +59,17 @@ class Camera(QDialog):
         self.analyze_button.clicked.connect(self.toggle_analysis)
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
+        self.clear_image_button.clicked.connect(self.clear_image)
         self.component.addItem("Kondensator")
         self.component.addItem("Układ scalony")
         self.component.addItem("Zworka")
         self.component.addItem("USB")
         self.component.addItem("Rezonator kwarcowy")
+        self.component.addItem("Rezystor")
+        self.component.addItem("Cewka")
+        self.component.addItem("Złącze")
+        self.component.addItem("Tranzystor")
+
 
 
 
@@ -91,8 +105,19 @@ class Camera(QDialog):
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
 
-        virtual_camera_index = 1 
+        
+        # for i in range(5):  # Testujemy kamery od 0 do 4
+        #     cap = cv2.VideoCapture(i)
+        #     if cap.isOpened():
+        #         print(f"Znaleziono kamerę: {i}")
+        #         cap.release()  # Zamykamy kamerę po sprawdzeniu
+        #     else:
+        #         print(f"Brak kamery na indeksie {i}")
+
+        virtual_camera_index = 2
         self.cap = cv2.VideoCapture(virtual_camera_index)
+        
+
 
         if not self.cap.isOpened():
             QMessageBox.critical(self, "Błąd", "Nie można otworzyć wirtualnej kamery.")
@@ -129,7 +154,9 @@ class Camera(QDialog):
             QMessageBox.warning(self, "Uwaga", "Kamera już jest włączona!")
             return
 
-        self.cap = cv2.VideoCapture(0)
+        # self.cap = cv2.VideoCapture(0) # kamera laptop
+        url = "http://192.168.1.12:4747/video"
+        self.cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)  #kamera telefonu
         if not self.cap.isOpened():
             QMessageBox.critical(self, "Błąd", "Nie można uzyskać dostępu do kamery.")
             self.cap = None
@@ -197,29 +224,23 @@ class Camera(QDialog):
             self.record_button.setText("Zatrzymaj Nagrywanie")
             print(f"Nagrywanie rozpoczęte: {file_name}")
 
-
-
-
     def detect_components(self, frame):
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        tensor_frame = torch.from_numpy(rgb_frame / 255.0).permute(2, 0, 1).float().unsqueeze(0)
+        tensor_frame = torch.from_numpy(frame / 255.0).permute(2, 0, 1).float().unsqueeze(0)
 
         with torch.no_grad():
             predictions = self.model(tensor_frame)[0]
 
-        detections = []  # Lista wykrytych obiektów
+        detections = []
         count = 0
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
-            if score > 0.7:
+            if score > 0.8:
                 count += 1
                 x1, y1, x2, y2 = map(int, box.tolist())
-
-                # Dodajemy obiekt do listy detections
                 detections.append({"id": f"ID: {count}", "bbox": (x1, y1, x2, y2), "score": float(score.item())})
 
         self.count_elements.setText(f"{count}")
-        return frame, detections  # Zwracamy zmodyfikowaną klatkę oraz detekcje
+        return frame, detections  
 
 
     def update_frame(self):
@@ -235,26 +256,64 @@ class Camera(QDialog):
         if self.analyze:
             frame, detections = self.detect_components(original_frame)  # Pobieramy detekcje
             self.update_component_list(detections)  # Aktualizujemy listę ID komponentów
-        else:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Rysowanie bounding boxów z listy bboxes
-        for bbox in self.bboxes:
+            # **Zamrażamy klatkę po analizie**  
+            self.frozen_frame = frame.copy()  
+            self.frozen_bboxes = self.bboxes.copy()  
+            self.frozen = True  # Ustawiamy zamrożenie
+
+        # **Jeśli analiza została zatrzymana, pokazujemy zamrożoną klatkę**
+        if self.frozen:
+            frame = self.frozen_frame.copy()
+            bboxes_to_draw = self.frozen_bboxes
+        else:
+            bboxes_to_draw = self.bboxes
+
+        # Rysowanie bounding boxów na odpowiedniej klatce
+        for bbox in bboxes_to_draw:
             x1, y1, x2, y2 = bbox["bbox"]
             color = bbox["color"]
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            #cv2.putText(frame, bbox["id"], (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-        frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
-
-        h, w, ch = frame.shape
+        # Wyświetlanie obrazu
+        frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
+        h, w, ch = frame_resized.shape
         bytes_per_line = ch * w
-        qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
 
         if self.recording and self.video_writer:
-            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            self.video_writer.write(bgr_frame)
+            self.video_writer.write(frame)  # Zapisujemy wideo
+
+
+
+    def show_frame(self, frame):
+        """Funkcja pomocnicza do wyświetlania obrazu"""
+        frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
+        h, w, ch = frame_resized.shape
+        bytes_per_line = ch * w
+        qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
+        self.cap_label.setPixmap(QPixmap.fromImage(qimg))
+
+        if self.recording and self.video_writer:
+            self.video_writer.write(frame) 
+
+
+    def show_frozen_frame(self):
+        """Wyświetla ostatnią zamrożoną klatkę"""
+        if self.frozen_frame is not None:
+            self.show_frame(self.frozen_frame)
+
+
+    def clear_image(self):
+        """Resetuje obraz i wznawia działanie kamery"""
+        self.frozen = False
+        self.frozen_frame = None
+        self.cap_label.clear()  # Czyści obrazek
+        self.bboxes = []  # Czyści bounding boxy
+        self.component_list.clear()  # Czyści listę komponentów
+
+
 
 
     def update_component_list(self, detections):
