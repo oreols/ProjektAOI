@@ -203,6 +203,75 @@ background-color: rgb(148, 176, 182);
      <string>wyczyść</string>
     </property>
    </widget>
+   <widget class="QComboBox" name="pcb_color_select">
+    <property name="geometry">
+     <rect>
+      <x>350</x>
+      <y>830</y>
+      <width>181</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <item>
+     <property name="text">
+      <string>Niebieska</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Zielona</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Czarna</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLineEdit" name="pcb_width_input">
+    <property name="geometry">
+     <rect>
+      <x>1160</x>
+      <y>800</y>
+      <width>133</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="placeholderText">
+     <string>Szerokość (mm)</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="pcb_height_input">
+    <property name="geometry">
+     <rect>
+      <x>1160</x>
+      <y>780</y>
+      <width>133</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="placeholderText">
+     <string>Wysokość (mm)</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="load_pos_button">
+    <property name="geometry">
+     <rect>
+      <x>1220</x>
+      <y>740</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Wczytaj .pos</string>
+    </property>
+   </widget>
+   
+   <zorder>pcb_width_input</zorder>
+   <zorder>pcb_height_input</zorder>
+   <zorder>load_pos_button</zorder>
+   <zorder>pcb_color_select</zorder>
    <zorder>label_2</zorder>
    <zorder>cap</zorder>
    <zorder>analyze_button</zorder>

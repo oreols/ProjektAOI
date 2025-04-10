@@ -2,13 +2,19 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 import cv2
 import os
-from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget
+from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QInputDialog, QLineEdit, QComboBox, QPushButton
 import torchvision
 import torch
 from PyQt5.QtCore import QTimer
 from models.faster_rcnn import get_model
 import urllib.request
+import numpy as np
+import re
 
+
+
+
+    
 class Camera(QDialog):
     def __init__(self):
         super().__init__()
@@ -60,6 +66,14 @@ class Camera(QDialog):
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
         self.clear_image_button.clicked.connect(self.clear_image)
+        self.pcb_color_select = self.findChild(QComboBox, "pcb_color_select")
+        self.pcb_width_input = self.findChild(QLineEdit, "pcb_width_input")
+        self.pcb_height_input = self.findChild(QLineEdit, "pcb_height_input")
+        self.load_pos_button = self.findChild(QPushButton, "load_pos_button")
+        self.load_pos_button.clicked.connect(self.load_and_overlay_pos)
+        self.pcb_width_input = self.findChild(QLineEdit, "pcb_width_input")
+        self.pcb_height_input = self.findChild(QLineEdit, "pcb_height_input")
+
         self.component.addItem("Kondensator")
         self.component.addItem("Układ scalony")
         self.component.addItem("Zworka")
@@ -69,6 +83,80 @@ class Camera(QDialog):
         self.component.addItem("Cewka")
         self.component.addItem("Złącze")
         self.component.addItem("Tranzystor")
+        
+        
+    def load_pos_file(self, path):
+        components = []
+        with open(path, 'r') as file:
+            for line in file:
+                if line.startswith('#') or line.startswith('###') or line.startswith('##'):
+                    continue
+                parts = re.split(r'\s+', line.strip())
+                if len(parts) >= 7:
+                    ref, val, pkg, x, y, rot, side = parts
+                    components.append({
+                        "ref": ref,
+                        "val": val,
+                        "x_mm": float(x),
+                        "y_mm": float(y),
+                        "rot": float(rot),
+                        "side": side
+                    })
+        return components
+
+
+
+    def extract_pcb(self, image, debug=False):
+        if image is None or not isinstance(image, np.ndarray):
+            raise ValueError("Nieprawidłowy obraz wejściowy.")
+
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # 🧠 Wybór koloru z GUI
+        selected_color = self.pcb_color_select.currentText().lower()
+
+        if "niebieska" in selected_color:
+            lower = np.array([90, 40, 40])
+            upper = np.array([140, 255, 255])
+        elif "zielona" in selected_color:
+            lower = np.array([40, 30, 30])
+            upper = np.array([85, 255, 255])
+        elif "czarna" in selected_color:
+            lower = np.array([0, 0, 0])
+            upper = np.array([180, 255, 60])
+        else:
+            raise ValueError(f"Nieznany kolor płytki: {selected_color}")
+
+        mask = cv2.inRange(hsv, lower, upper)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if not contours:
+            raise RuntimeError("❌ Nie wykryto konturu płytki PCB (kolor).")
+
+        pcb_contour = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(pcb_contour)
+
+        print(f"🎯 PCB (kolor={selected_color}) x={x}, y={y}, w={w}, h={h}")
+
+        pcb_img = image[y:y + h, x:x + w]
+        rotated = False
+
+        if h > w:
+            pcb_img = cv2.rotate(pcb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            rotated = True
+            w, h = h, w
+
+        if debug:
+            debug_img = image.copy()
+            cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            self.show_frame(debug_img)
+            cv2.imwrite("debug_pcb_mask_color.jpg", pcb_img)
+
+        return pcb_img, rotated, w, h
+
 
 
 
@@ -105,17 +193,29 @@ class Camera(QDialog):
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
 
-        
-        # for i in range(5):  # Testujemy kamery od 0 do 4
-        #     cap = cv2.VideoCapture(i)
-        #     if cap.isOpened():
-        #         print(f"Znaleziono kamerę: {i}")
-        #         cap.release()  # Zamykamy kamerę po sprawdzeniu
-        #     else:
-        #         print(f"Brak kamery na indeksie {i}")
+        available_cams = []
+        for i in range(10):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                ret, frame = cap.read()
+                if ret and frame is not None and frame.shape[1] > 100:
+                    available_cams.append((i, frame.shape))
+                cap.release()
 
-        virtual_camera_index = 2
-        self.cap = cv2.VideoCapture(virtual_camera_index)
+        if not available_cams:
+            QMessageBox.warning(self, "Błąd", "Nie znaleziono żadnych dostępnych kamer.")
+            return
+
+        cam_options = [f"Kamera {idx} - {shape[1]}x{shape[0]}" for idx, shape in available_cams]
+        choice, ok = QInputDialog.getItem(self, "Wybierz kamerę", "Dostępne kamery:", cam_options, 0, False)
+
+        if ok and choice:
+            selected_index = int(choice.split()[1])
+            self.cap = cv2.VideoCapture(selected_index)
+            if self.cap.isOpened():
+                self.timer.start(30)
+            else:
+                QMessageBox.warning(self, "Błąd", f"Nie udało się otworzyć kamery o indeksie {selected_index}.")
         
 
 
@@ -225,7 +325,7 @@ class Camera(QDialog):
             print(f"Nagrywanie rozpoczęte: {file_name}")
 
     def detect_components(self, frame):
-        tensor_frame = torch.from_numpy(frame / 255.0).permute(2, 0, 1).float().unsqueeze(0)
+        tensor_frame = torch.from_numpy(frame / 255.0).permute(2, 0, 1).float().unsqueeze(0).to('cuda')
 
         with torch.no_grad():
             predictions = self.model(tensor_frame)[0]
@@ -234,7 +334,7 @@ class Camera(QDialog):
         count = 0
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
-            if score > 0.8:
+            if score > 0.7:
                 count += 1
                 x1, y1, x2, y2 = map(int, box.tolist())
                 detections.append({"id": f"ID: {count}", "bbox": (x1, y1, x2, y2), "score": float(score.item())})
@@ -242,7 +342,178 @@ class Camera(QDialog):
         self.count_elements.setText(f"{count}")
         return frame, detections  
 
+    
+    def load_pos_file(self, path):
+        components = []
+        with open(path, 'r') as file:
+            for line in file:
+                if line.startswith('#') or line.startswith('###') or line.startswith('##'):
+                    continue
+                parts = re.split(r'\s+', line.strip())
+                if len(parts) >= 7:
+                    ref, val, pkg, x, y, rot, side = parts
+                    components.append({
+                        "ref": val,
+                        "val": val,
+                        "x_mm": float(x),
+                        "y_mm": float(y),
+                        "rot": float(rot),
+                        "side": side
+                    })
+        return components
 
+    def draw_pos_on_pcb(self, pcb_img, components, scale_x, scale_y):
+        overlay = pcb_img.copy()
+        drawn = 0
+
+        for comp in components:
+            x_px = int(comp["x_mm"] * scale_x)
+            y_px = int(abs(comp["y_mm"]) * scale_y)  # Y może być ujemne
+
+            if 0 <= x_px < overlay.shape[1] and 0 <= y_px < overlay.shape[0]:
+                cv2.circle(overlay, (x_px, y_px), 8, (0, 0, 255), -1)
+                cv2.putText(overlay, comp["val"], (x_px + 5, y_px - 3),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+                print(f"🎯 {comp['val']} → x={x_px}px, y={y_px}px")
+                drawn += 1
+            else:
+                print(f"⚠️ {comp['val']} poza obrazem!")
+
+        print(f"🖍️ Narysowano komponentów: {drawn}")
+        return overlay
+
+
+    def draw_pos_on_pcb_manual(self, pcb_img, components, scale_x, scale_y, pcb_width_mm, pcb_height_mm):
+        # Wylicz granice z .pos
+        all_x = [c["x_mm"] for c in components]
+        all_y = [abs(c["y_mm"]) for c in components]
+        min_x = min(all_x)
+        max_x = max(all_x)
+        min_y = min(all_y)
+        max_y = max(all_y)
+        pos_width = max_x - min_x
+        pos_height = max_y - min_y
+
+        # Oblicz automatyczny offset, aby układ był wyśrodkowany na płytce
+        offset_board_x = (pcb_width_mm - pos_width) / 2.0
+        offset_board_y = (pcb_height_mm - pos_height) / 2.0
+
+        # Ustal dodatkowy, ręczny offset (FINE OFFSET) w mm – możesz modyfikować te stałe lub pobierać z GUI
+        FINE_OFFSET_X_MM = -2.5  # Ustaw eksperymentalnie, np. 0.0, 0.5, itp.
+        FINE_OFFSET_Y_MM = -3.0
+
+        print(f"🔍 Automatyczny offset: {offset_board_x:.2f} mm (X), {offset_board_y:.2f} mm (Y)")
+        print(f"🔍 Fine offset: {FINE_OFFSET_X_MM:.2f} mm (X), {FINE_OFFSET_Y_MM:.2f} mm (Y)")
+
+        overlay = pcb_img.copy()
+        drawn = 0
+
+        for comp in components:
+            # Przekształć współrzędne:
+            # (comp["x_mm"] - min_x) daje pozycję względem minimalnej wartości z pos.
+            # Dodajemy offset_board oraz dodatkowy FINE_OFFSET.
+            x_mm_adjusted = (comp["x_mm"] - min_x) + offset_board_x + FINE_OFFSET_X_MM
+            y_mm_adjusted = (abs(comp["y_mm"]) - min_y) + offset_board_y + FINE_OFFSET_Y_MM
+
+            x_px = int(x_mm_adjusted * scale_x)
+            y_px = int(y_mm_adjusted * scale_y)
+
+            # Debug wypisanie
+            print(f"🎯 {comp['val']} → x={x_px}px, y={y_px}px (x_mm_adj={x_mm_adjusted:.2f}, y_mm_adj={y_mm_adjusted:.2f})")
+            
+            if 0 <= x_px < pcb_img.shape[1] and 0 <= y_px < pcb_img.shape[0]:
+                cv2.circle(overlay, (x_px, y_px), 4, (0, 0, 255), -1)
+                cv2.putText(overlay, comp["val"], (x_px + 3, y_px - 3),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+                drawn += 1
+            else:
+                print(f"⚠️ {comp['val']} poza obrazem!")
+      
+        print(f"🖍️ Narysowano komponentów: {drawn}")
+        return overlay
+
+
+
+
+
+    def load_and_overlay_pos(self):
+        # 1. Wybierz plik .pos
+        path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik .pos", "", "Pliki POS (*.pos *.txt)")
+        if not path:
+            return
+
+        components = self.load_pos_file(path)
+        if not components:
+            QMessageBox.warning(self, "Błąd", "Nie wczytano żadnych komponentów z pliku .pos.")
+            return
+
+        # 2. Pobierz obraz – zamrożony lub z kamery
+        if self.frozen_frame is not None:
+            frame = self.frozen_frame.copy()
+        elif self.cap and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if not ret:
+                QMessageBox.warning(self, "Błąd", "Nie udało się pobrać obrazu z kamery.")
+                return
+        else:
+            QMessageBox.warning(self, "Błąd", "Brak źródła obrazu.")
+            return
+
+        # 3. Wytnij PCB z obrazu
+        try:
+            pcb_img, rotated, pcb_w_px, pcb_h_px = self.extract_pcb(frame, debug=True)
+            print(f"📸 PCB wycięte: {pcb_w_px} x {pcb_h_px} px")
+        except Exception as e:
+            QMessageBox.warning(self, "Błąd", f"Nie udało się wyciąć PCB:\n{e}")
+            return
+
+        # 4. Pobierz fizyczne wymiary płytki od użytkownika
+        try:
+            pcb_width_mm = float(self.pcb_width_input.text().replace(",", "."))
+            pcb_height_mm = float(self.pcb_height_input.text().replace(",", "."))
+        except Exception:
+            QMessageBox.warning(self, "Błąd", "Nieprawidłowe wymiary płytki PCB.")
+            return
+
+        print(f"📏 Wymiary podane: {pcb_width_mm:.2f} mm x {pcb_height_mm:.2f} mm")
+
+        # 5. Oblicz skalę (px/mm) – na podstawie podanych wymiarów
+        scale_x = pcb_w_px / pcb_width_mm
+        scale_y = pcb_h_px / pcb_height_mm
+        print(f"📐 Skala ręczna: {scale_x:.2f} px/mm (X), {scale_y:.2f} px/mm (Y)")
+
+        # 6. Rysuj komponenty na obrazie PCB – overlay z .pos (funkcja draw_pos_on_pcb_manual obsługuje offsety)
+        overlayed = self.draw_pos_on_pcb_manual(pcb_img, components, scale_x, scale_y, pcb_width_mm, pcb_height_mm)
+        self.current_overlay = overlayed.copy()
+
+        # 7. Uruchom analizę ML na overlayu (obrazie z naniesionymi kropkami z .pos)
+        analyzed_img, detections = self.detect_components(overlayed)
+        print("🔍 Analiza ML zakończona.")
+
+        # 8. Naniesienie wyników detekcji ML na obrazie overlay – bounding boxy
+        result = self.draw_detections_on_overlay(analyzed_img, detections)
+
+        # 9. Zamrożenie i wyświetlenie finalnego obrazu w GUI
+        self.frozen_frame = result.copy()
+        self.frozen = True
+        self.frozen_bboxes = []  # Reset, jeśli potrzebne
+        self.show_frame(result)
+
+        # (Debug) Zapisz wynik do pliku
+        cv2.imwrite("debug_output_pcb.jpg", result)
+        cv2.imwrite("debug_shown_in_gui.jpg", cv2.resize(result, (self.cap_label.width(), self.cap_label.height())))
+        print("✅ Zapisano: debug_output_pcb.jpg")
+
+
+
+
+
+    def draw_detections_on_overlay(self, image, detections):
+        overlay = image.copy()
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        return overlay
     def update_frame(self):
         ret, frame = self.cap.read()
         if not ret:
@@ -253,29 +524,32 @@ class Camera(QDialog):
         self.frame_count += 1
         original_frame = frame.copy()
 
+        try:
+            # 🚨 teraz OK – przekazujemy obraz, nie ścieżkę
+            original_frame, rotated, pcb_w_px, pcb_h_px = self.extract_pcb(original_frame, debug=True)
+        except Exception as e:
+            print(f"⚠️ Błąd przy wycinaniu PCB: {e}")
+            original_frame = frame.copy()  # fallback: nieprzetworzony obraz
+
         if self.analyze:
-            frame, detections = self.detect_components(original_frame)  # Pobieramy detekcje
-            self.update_component_list(detections)  # Aktualizujemy listę ID komponentów
+            frame, detections = self.detect_components(original_frame)
+            self.update_component_list(detections)
 
-            # **Zamrażamy klatkę po analizie**  
-            self.frozen_frame = frame.copy()  
-            self.frozen_bboxes = self.bboxes.copy()  
-            self.frozen = True  # Ustawiamy zamrożenie
+            self.frozen_frame = frame.copy()
+            self.frozen_bboxes = self.bboxes.copy()
+            self.frozen = True
 
-        # **Jeśli analiza została zatrzymana, pokazujemy zamrożoną klatkę**
         if self.frozen:
             frame = self.frozen_frame.copy()
             bboxes_to_draw = self.frozen_bboxes
         else:
             bboxes_to_draw = self.bboxes
 
-        # Rysowanie bounding boxów na odpowiedniej klatce
         for bbox in bboxes_to_draw:
             x1, y1, x2, y2 = bbox["bbox"]
             color = bbox["color"]
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-        # Wyświetlanie obrazu
         frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
         h, w, ch = frame_resized.shape
         bytes_per_line = ch * w
@@ -283,20 +557,21 @@ class Camera(QDialog):
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
 
         if self.recording and self.video_writer:
-            self.video_writer.write(frame)  # Zapisujemy wideo
+            self.video_writer.write(frame)
 
 
 
     def show_frame(self, frame):
-        """Funkcja pomocnicza do wyświetlania obrazu"""
         frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
         h, w, ch = frame_resized.shape
         bytes_per_line = ch * w
         qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
 
-        if self.recording and self.video_writer:
-            self.video_writer.write(frame) 
+        # ✅ Zapisz dokładnie to, co widzi GUI
+        cv2.imwrite("debug_shown_in_gui.jpg", frame_resized)
+
+
 
 
     def show_frozen_frame(self):
