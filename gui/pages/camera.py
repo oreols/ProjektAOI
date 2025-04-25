@@ -21,19 +21,17 @@ class Camera(QDialog):
 
         self.frozen = False  # Dodaj tę linię
         self.frozen_frame = None  # Przechowa zamrożoną klatkę
-
-
+        self.original_frame = None  # Przechowa oryginalną kopię obrazu bez boxów
 
         self.model_paths = {
-            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/best_model_epoch_68_mAP_0.282.pth")),
-            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/ic_resnet50v2_model_epoch_12_mAP_0.648.pth")),
-            "Zworka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/jumpers_resnet50v2_model_epoch_49_mAP_0.469.pth")),
-            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/usb_resnet50v2_model_epoch_9_mAP_0.799.pth")),
-            "Rezonator kwarcowy": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/resonator_resnet50v2_model_epoch_23_mAP_0.820.pth")),
-            "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/best_model_epoch_65_mAP_0.316.pth")),
-            "Cewka": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/cewka_80_mAP_0.760.pth")),
-            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/connectors_resnet50v2_model_epoch_58_mAP_0.650.pth")),
-            "Tranzystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/trained_components/transistors-tactswitches_resnet50v2_model_epoch_21_mAP_0.755.pth")),
+            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/capacitors_model_epoch_19_mAP_0.815.pth")),
+            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/ic_model_epoch_18_mAP_0.875.pth")),
+            "Dioda": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/dioda_model_epoch_14_mAP_0.822.pth")),
+            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/usb_model_epoch_12_mAP_0.934.pth")),
+            "Rezonator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/rezonator_model_epoch_6_mAP_0.934.pth")),
+            "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/rezystor_model_epoch_8_mAP_0.825.pth")),
+            "Przycisk": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/switch_best_model_epoch_14_mAP_0.966.pth")),
+            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/connectors_model_epoch_10_mAP_0.733.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -60,36 +58,36 @@ class Camera(QDialog):
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
         self.clear_image_button.clicked.connect(self.clear_image)
-        self.component.addItem("Kondensator")
-        self.component.addItem("Układ scalony")
-        self.component.addItem("Zworka")
-        self.component.addItem("USB")
-        self.component.addItem("Rezonator kwarcowy")
-        self.component.addItem("Rezystor")
-        self.component.addItem("Cewka")
-        self.component.addItem("Złącze")
-        self.component.addItem("Tranzystor")
-
-
-
+        
+        # Zmiana tekstu przycisku aby odzwierciedlał jego nową funkcję
+        self.virtual_cam_button.setText("Wczytaj zdjęcie")
+        
+        # Dodajemy wszystkie modele z model_paths do listy rozwijanej
+        self.component.clear()
+        for component_name in sorted(self.model_paths.keys()):
+            self.component.addItem(component_name)
+        
+        # Załaduj pierwszy model jeśli lista nie jest pusta
+        if self.component.count() > 0:
+            first_component = self.component.itemText(0)
+            self.change_model(first_component)
 
     def load_model(self, model_path):
         if os.path.exists(model_path):
-            state_dict = torch.load(model_path, map_location=self.device)
-
             try:
                 # Użyj tej samej funkcji co w test.py
-                self.model = get_model(2).to(self.device)  # num_classes=2
-                self.model.load_state_dict(state_dict, strict=False)
+                self.model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                self.model.load_state_dict(state_dict)
+                self.model.to(self.device)  # Upewnij się że model jest na właściwym urządzeniu
+                self.model.eval()
+                print(f"\nZaładowano model: {model_path}")
+                print(f"Model device: {next(self.model.parameters()).device}")
             except RuntimeError as e:
                 print("\n❌ Błąd podczas ładowania state_dict:")
                 print(e)
                 QMessageBox.critical(self, "Błąd", f"Problem z załadowaniem modelu:\n{e}")
                 return
-
-
-            self.model.eval()
-            print(f"\nZaładowano model: {model_path}")
         else:
             QMessageBox.critical(self, "Błąd", f"Nie znaleziono modelu: {model_path}")
 
@@ -102,29 +100,49 @@ class Camera(QDialog):
             QMessageBox.warning(self, "Uwaga", f"Nie znaleziono modelu dla: {selected_component}")
 
     def choose_virtual_camera(self):
+        # Zatrzymaj wszystkie aktywne strumienie wideo
         if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-
-        
-        # for i in range(5):  # Testujemy kamery od 0 do 4
-        #     cap = cv2.VideoCapture(i)
-        #     if cap.isOpened():
-        #         print(f"Znaleziono kamerę: {i}")
-        #         cap.release()  # Zamykamy kamerę po sprawdzeniu
-        #     else:
-        #         print(f"Brak kamery na indeksie {i}")
-
-        virtual_camera_index = 2
-        self.cap = cv2.VideoCapture(virtual_camera_index)
-        
-
-
-        if not self.cap.isOpened():
-            QMessageBox.critical(self, "Błąd", "Nie można otworzyć wirtualnej kamery.")
             self.cap = None
+        self.timer.stop()
+        
+        # Wyczyść stare dane
+        self.frozen = False
+        self.frozen_frame = None
+        self.original_frame = None
+        self.bboxes = []
+        self.component_list.clear()
+        self.count_elements.setText("")
+        
+        # Wyświetl dialog wyboru pliku
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz zdjęcie", "", 
+            "Pliki obrazów (*.png *.jpg *.jpeg *.bmp);;Wszystkie pliki (*)", 
+            options=options
+        )
+        
+        if not file_name:
+            # Użytkownik anulował wybór pliku
             return
-
-        self.timer.start(30)
+            
+        # Wczytaj wybrany obraz
+        image = cv2.imread(file_name)
+        if image is None:
+            QMessageBox.critical(self, "Błąd", f"Nie udało się wczytać obrazu: {file_name}")
+            return
+            
+        # Przechowaj obraz jako "zamrożoną klatkę" i oryginał
+        self.original_frame = image.copy()  # Zachowaj kopię oryginalnego obrazu
+        self.frozen_frame = image.copy()
+        self.frozen = True
+        print(f"Załadowano obraz: {file_name}, wymiary: {image.shape}")
+        
+        # Wyświetl obraz w interfejsie
+        self.show_frame(image)
+        
+        # Zaktualizuj stan interfejsu
+        QMessageBox.information(self, "Informacja", "Obraz został wczytany. Możesz teraz uruchomić analizę.")
 
     def resize_with_aspect_ratio(self, frame, target_width, target_height):
         h, w, _ = frame.shape
@@ -176,6 +194,41 @@ class Camera(QDialog):
     def toggle_analysis(self):
         self.analyze = not self.analyze
         self.analyze_button.setText("Wyłącz Analizę" if self.analyze else "Analiza")
+        
+        # Jeśli włączono analizę i mamy załadowany obraz statyczny
+        if self.analyze and self.frozen and self.frozen_frame is not None and self.cap is None:
+            print("Analizuję statyczny obraz...")
+            
+            # Użyj oryginalnego obrazu do analizy
+            if self.original_frame is not None:
+                analyze_frame = self.original_frame.copy()
+            else:
+                analyze_frame = self.frozen_frame.copy()
+                
+            print(f"Analizuję obraz o wymiarach: {analyze_frame.shape}")
+                
+            # Wykonaj analizę na obrazie
+            result_frame, detections = self.detect_components(analyze_frame)
+            self.update_component_list(detections)
+            
+            # Rysowanie bounding boxów na obrazie
+            display_frame = result_frame.copy()
+            for bbox in self.bboxes:
+                x1, y1, x2, y2 = bbox["bbox"]
+                color = bbox["color"]
+                # Zwiększono grubość ramki z 2 na 4
+                cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
+                # Dodaj etykietę z ID - zwiększono wielkość fonta z 0.5 na 1.0 i grubość z 2 na 3
+                cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+            
+            # Aktualizuj ramkę do wyświetlenia
+            self.frozen_frame = display_frame.copy()
+            self.frozen_bboxes = self.bboxes.copy()
+            
+            # Wyświetl zaktualizowany obraz
+            self.show_frame(display_frame)
+            print(f"Wykryto {len(self.bboxes)} obiektów")
 
     def toggle_recording(self):
         if self.cap is None or not self.cap.isOpened():
@@ -225,25 +278,69 @@ class Camera(QDialog):
             print(f"Nagrywanie rozpoczęte: {file_name}")
 
     def detect_components(self, frame):
-        tensor_frame = torch.from_numpy(frame / 255.0).permute(2, 0, 1).float().unsqueeze(0)
+        """Funkcja wykrywająca komponenty na obrazie"""
+        # Konwersja BGR do RGB - podobnie jak w test.py
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Konwersja do tensora w sposób identyczny jak w test.py
+        tensor_frame = torch.tensor(rgb_frame).permute(2, 0, 1).float() / 255.0
+        tensor_frame = tensor_frame.unsqueeze(0).to(self.device)
+        
+        print(f"Tensor shape: {tensor_frame.shape}, device: {tensor_frame.device}, model device: {next(self.model.parameters()).device}")
 
         with torch.no_grad():
-            predictions = self.model(tensor_frame)[0]
+            try:
+                predictions = self.model(tensor_frame)[0]
+                print("Predykcja zakończona pomyślnie")
+                print(f"Predykcja zwróciła {len(predictions['boxes'])} potencjalnych obiektów")
+                
+                # Wypisz kilka pierwszych predykcji dla debugowania
+                if len(predictions['boxes']) > 0:
+                    for i in range(min(3, len(predictions['boxes']))):
+                        print(f"Box {i}: {predictions['boxes'][i].tolist()}, Score: {predictions['scores'][i].item():.4f}")
+            except Exception as e:
+                print(f"Błąd podczas predykcji: {e}")
+                import traceback
+                traceback.print_exc()
+                return frame, []
 
         detections = []
         count = 0
+        
+        # Ustawiam wyższy próg pewności zgodnie z wymaganiem
+        confidence_threshold = 0.75  # Zwiększono z 0.3 na 0.75
+        print(f"Liczba wykrytych obiektów przed filtrowaniem: {len(predictions['boxes'])}")
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
-            if score > 0.8:
+            if score > confidence_threshold:
                 count += 1
-                x1, y1, x2, y2 = map(int, box.tolist())
-                detections.append({"id": f"ID: {count}", "bbox": (x1, y1, x2, y2), "score": float(score.item())})
+                # Konwersja koordynatów na inty
+                x1, y1, x2, y2 = map(int, box.cpu().numpy())
+                component_name = self.component.currentText()
+                detections.append({
+                    "id": f"{component_name}:{count}|Score: {score.item():.2f}", 
+                    "bbox": (x1, y1, x2, y2), 
+                    "score": float(score.item())
+                })
 
         self.count_elements.setText(f"{count}")
-        return frame, detections  
+        print(f"Liczba wykrytych obiektów po filtrowaniu (próg={confidence_threshold}): {count}")
+        
+        # Dodaję boxów do oryginalnego obrazu dla lepszej wizualizacji 
+        # Zwiększono grubość linii z 2 na 4
+        result_frame = frame.copy()
+        for det in detections:
+            x1, y1, x2, y2 = det["bbox"]
+            cv2.rectangle(result_frame, (x1, y1), (x2, y2), (0, 255, 0), 4)
+            
+        return result_frame, detections
 
 
     def update_frame(self):
+        # Jeżeli analiza dotyczy statycznego obrazu, to nie próbujemy pobierać klatek z kamery
+        if self.cap is None and self.frozen and self.frozen_frame is not None:
+            return
+            
         ret, frame = self.cap.read()
         if not ret:
             QMessageBox.critical(self, "Błąd", "Nie udało się pobrać klatki z kamery.")
@@ -273,7 +370,11 @@ class Camera(QDialog):
         for bbox in bboxes_to_draw:
             x1, y1, x2, y2 = bbox["bbox"]
             color = bbox["color"]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            # Zwiększono grubość ramki z 2 na 4
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 4)
+            # Dodaj etykiety dla każdego wykrytego obiektu
+            cv2.putText(frame, bbox["id"], (x1, y1-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
 
         # Wyświetlanie obrazu
         frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
@@ -289,6 +390,11 @@ class Camera(QDialog):
 
     def show_frame(self, frame):
         """Funkcja pomocnicza do wyświetlania obrazu"""
+        if frame is None:
+            print("BŁĄD: Próba wyświetlenia pustej ramki!")
+            return
+            
+        print(f"Wyświetlam ramkę o wymiarach: {frame.shape}")
         frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
         h, w, ch = frame_resized.shape
         bytes_per_line = ch * w
@@ -309,9 +415,16 @@ class Camera(QDialog):
         """Resetuje obraz i wznawia działanie kamery"""
         self.frozen = False
         self.frozen_frame = None
+        self.original_frame = None
         self.cap_label.clear()  # Czyści obrazek
         self.bboxes = []  # Czyści bounding boxy
         self.component_list.clear()  # Czyści listę komponentów
+        self.count_elements.setText("")  # Czyści licznik elementów
+        
+        # Resetujemy analizę
+        if self.analyze:
+            self.analyze = False
+            self.analyze_button.setText("Analiza")
 
 
 
@@ -321,29 +434,59 @@ class Camera(QDialog):
         self.component_list.clear()  # Czyści starą listę
         self.bboxes = []  # Lista boxów
 
-        for i,detection in enumerate(detections):
+        print(f"Otrzymano {len(detections)} detekcji do aktualizacji listy")
+        
+        for i, detection in enumerate(detections):
             x1, y1, x2, y2 = detection["bbox"]
             id_ = f"ID:{i+1}|Score: {detection['score']:.2f}"
             self.component_list.addItem(id_)  # Dodajemy ID do listy 
 
             # Dodajemy bbox do listy z domyślnym kolorem
-            self.bboxes.append({"id": id_, "bbox": (x1, y1, x2, y2), "color": (0, 255, 0), "score": detection["score"]})  # czerwony
+            self.bboxes.append({"id": id_, "bbox": (x1, y1, x2, y2), "color": (0, 255, 0), "score": detection["score"]})  # zielony
+        
+        print(f"Zaktualizowano listę komponentów, dodano {len(self.bboxes)} elementów")
 
 
     def highlight_bbox(self, item):
         """Zmienia kolor bounding boxa po kliknięciu w ID na liście"""
         clicked_id = item.text()  # Pobieramy ID
+        print(f"Wybrano element: {clicked_id}")
 
         updated = False  # Flaga sprawdzająca, czy znaleziono ID
         for bbox in self.bboxes:
             if bbox["id"] == clicked_id:
-                bbox["color"] = (255, 0, 0)  # Zmień kolor na zielony
+                bbox["color"] = (255, 0, 0)  # Zmień kolor na czerwony
                 updated = True
-            if bbox["id"] != clicked_id:
-                bbox["color"] = (0, 255, 0)
+                print(f"Znaleziono i wyróżniono bbox: {bbox['bbox']}")
+            else:
+                bbox["color"] = (0, 255, 0)  # Kolor zielony dla pozostałych
 
         if updated:
-            self.update_frame()  # Odśwież kamerę
+            if self.cap is not None and self.cap.isOpened():
+                # Jeśli mamy aktywną kamerę, użyj update_frame
+                self.update_frame()  # Odśwież kamerę
+            elif self.frozen and self.frozen_frame is not None:
+                # Jeśli mamy statyczny obraz, aktualizujemy go ręcznie
+                # Pobierz oryginalną ramkę bez boxów
+                display_frame = self.frozen_frame.copy()
+                
+                # Aktualizujemy frozen_bboxes
+                self.frozen_bboxes = self.bboxes.copy()
+                
+                # Rysowanie bounding boxów na obrazie
+                for bbox in self.frozen_bboxes:
+                    x1, y1, x2, y2 = bbox["bbox"]
+                    color = bbox["color"]
+                    # Zwiększono grubość ramki z 2 na 4
+                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
+                    # Zwiększono wielkość fonta z 0.5 na 1.0 i grubość z 2 na 3
+                    cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+                
+                # Wyświetl zaktualizowany obraz
+                self.show_frame(display_frame)
+                print("Zaktualizowano wyświetlanie statycznego obrazu")
+                
             self.cap_label.repaint()  # Wymuś ponowne narysowanie
 
 

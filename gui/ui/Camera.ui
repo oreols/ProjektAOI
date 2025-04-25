@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>0</x>
-     <y>0</y>
+     <y>-30</y>
      <width>1400</width>
      <height>900</height>
     </rect>
@@ -25,25 +25,6 @@
    <property name="styleSheet">
     <string notr="true">background-color: rgb(210, 208, 208);</string>
    </property>
-   <widget class="QLabel" name="label_2">
-    <property name="geometry">
-     <rect>
-      <x>960</x>
-      <y>580</y>
-      <width>251</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 63 16pt &quot;Segoe UI Semibold&quot;;
-color:white;
-background-color: rgb(148, 176, 182);
-</string>
-    </property>
-    <property name="text">
-     <string>WYKRYTE DEFEKTY</string>
-    </property>
-   </widget>
    <widget class="QPushButton" name="analyze_button">
     <property name="geometry">
      <rect>
@@ -203,7 +184,6 @@ background-color: rgb(148, 176, 182);
      <string>wyczyść</string>
     </property>
    </widget>
-   <zorder>label_2</zorder>
    <zorder>cap</zorder>
    <zorder>analyze_button</zorder>
    <zorder>start_button</zorder>

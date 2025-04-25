@@ -10,6 +10,10 @@ class Login(QDialog):
         self.widget = widget
         self.loginButton.clicked.connect(self.loginFunction)
         self.password.setEchoMode(QLineEdit.Password)
+        
+        # Automatyczne wypełnienie danych logowania
+        self.email.setText("admin@onet.pl")
+        self.password.setText("PassWord123.?")
 
     def loginFunction(self):
         email = self.email.text().strip()
