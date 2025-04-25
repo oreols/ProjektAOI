@@ -106,6 +106,32 @@
      <string>nagraj ekran</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="preprocessing_btn">
+    <property name="geometry">
+     <rect>
+      <x>560</x>
+      <y>790</y>
+      <width>201</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Preprocessing</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="show_preprocessing_btn">
+    <property name="geometry">
+     <rect>
+      <x>560</x>
+      <y>820</y>
+      <width>201</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Pokaż preprocessing</string>
+    </property>
+   </widget>
    <widget class="QComboBox" name="component">
     <property name="geometry">
      <rect>
@@ -190,6 +216,8 @@
    <zorder>virtual_cam_button</zorder>
    <zorder>stop_button</zorder>
    <zorder>record_button</zorder>
+   <zorder>preprocessing_btn</zorder>
+   <zorder>show_preprocessing_btn</zorder>
    <zorder>component</zorder>
    <zorder>label_3</zorder>
    <zorder>label_4</zorder>

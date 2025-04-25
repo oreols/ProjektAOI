@@ -2,12 +2,19 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 import cv2
 import os
-from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget
+from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton
 import torchvision
 import torch
 from PyQt5.QtCore import QTimer
 from models.faster_rcnn import get_model
 import urllib.request
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+from io import BytesIO
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class Camera(QDialog):
     def __init__(self):
@@ -22,6 +29,8 @@ class Camera(QDialog):
         self.frozen = False  # Dodaj tę linię
         self.frozen_frame = None  # Przechowa zamrożoną klatkę
         self.original_frame = None  # Przechowa oryginalną kopię obrazu bez boxów
+        self.preprocessed_frame = None  # Przechowa obraz po preprocessingu
+        self.is_preprocessed = False  # Flaga czy obraz został już przetworzony
 
         self.model_paths = {
             "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/capacitors_model_epoch_19_mAP_0.815.pth")),
@@ -72,6 +81,19 @@ class Camera(QDialog):
             first_component = self.component.itemText(0)
             self.change_model(first_component)
 
+        # Inicjujemy przyciski preprocessingu
+        self.preprocessing_btn = self.findChild(QPushButton, "preprocessing_btn")
+        self.show_preprocessing_btn = self.findChild(QPushButton, "show_preprocessing_btn")
+        
+        # Podłączamy sygnały do przycisków
+        self.preprocessing_btn.clicked.connect(self.run_preprocessing)
+        self.show_preprocessing_btn.clicked.connect(self.toggle_preprocessing_view)
+        self.preprocessing_visible = False
+        
+        # Dezaktywuj przycisk analizy - najpierw musi być preprocessing
+        self.analyze_button.setEnabled(False)
+        self.show_preprocessing_btn.setEnabled(False)  # Początkowo nie ma nic do pokazania
+
     def load_model(self, model_path):
         if os.path.exists(model_path):
             try:
@@ -110,6 +132,8 @@ class Camera(QDialog):
         self.frozen = False
         self.frozen_frame = None
         self.original_frame = None
+        self.preprocessed_frame = None
+        self.is_preprocessed = False
         self.bboxes = []
         self.component_list.clear()
         self.count_elements.setText("")
@@ -141,8 +165,12 @@ class Camera(QDialog):
         # Wyświetl obraz w interfejsie
         self.show_frame(image)
         
+        # Aktywuj przycisk preprocessingu, dezaktywuj analizę
+        self.preprocessing_btn.setEnabled(True)
+        self.analyze_button.setEnabled(False)
+        
         # Zaktualizuj stan interfejsu
-        QMessageBox.information(self, "Informacja", "Obraz został wczytany. Możesz teraz uruchomić analizę.")
+        QMessageBox.information(self, "Informacja", "Obraz został wczytany. Teraz wykonaj preprocessing.")
 
     def resize_with_aspect_ratio(self, frame, target_width, target_height):
         h, w, _ = frame.shape
@@ -180,6 +208,10 @@ class Camera(QDialog):
             self.cap = None
             return
 
+        # Aktywuj analizę kamery - preprocessing będzie wykonywany automatycznie
+        self.preprocessing_btn.setEnabled(False)  # Dla kamery preprocessing jest automatyczny
+        self.analyze_button.setEnabled(True)      # Analiza może być wykonana
+        
         self.timer.start(30)
 
     def stop_camera(self):
@@ -192,18 +224,20 @@ class Camera(QDialog):
             self.toggle_recording()
 
     def toggle_analysis(self):
+        # Sprawdź czy preprocessing został wykonany
+        if self.frozen and not self.is_preprocessed:
+            QMessageBox.warning(self, "Uwaga", "Najpierw wykonaj preprocessing!")
+            return
+            
         self.analyze = not self.analyze
         self.analyze_button.setText("Wyłącz Analizę" if self.analyze else "Analiza")
         
         # Jeśli włączono analizę i mamy załadowany obraz statyczny
-        if self.analyze and self.frozen and self.frozen_frame is not None and self.cap is None:
+        if self.analyze and self.frozen and self.preprocessed_frame is not None and self.cap is None:
             print("Analizuję statyczny obraz...")
             
-            # Użyj oryginalnego obrazu do analizy
-            if self.original_frame is not None:
-                analyze_frame = self.original_frame.copy()
-            else:
-                analyze_frame = self.frozen_frame.copy()
+            # Użyj przetworzonego obrazu do analizy
+            analyze_frame = self.preprocessed_frame.copy()
                 
             print(f"Analizuję obraz o wymiarach: {analyze_frame.shape}")
                 
@@ -212,7 +246,7 @@ class Camera(QDialog):
             self.update_component_list(detections)
             
             # Rysowanie bounding boxów na obrazie
-            display_frame = result_frame.copy()
+            display_frame = self.original_frame.copy()  # Rysuj na oryginalnym obrazie dla lepszej czytelności
             for bbox in self.bboxes:
                 x1, y1, x2, y2 = bbox["bbox"]
                 color = bbox["color"]
@@ -279,7 +313,9 @@ class Camera(QDialog):
 
     def detect_components(self, frame):
         """Funkcja wykrywająca komponenty na obrazie"""
-        # Konwersja BGR do RGB - podobnie jak w test.py
+        # W tym miejscu frame powinien być już po preprocessingu
+        
+        # Konwersja BGR do RGB - dokładnie jak w test.py
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
         # Konwersja do tensora w sposób identyczny jak w test.py
@@ -307,8 +343,8 @@ class Camera(QDialog):
         detections = []
         count = 0
         
-        # Ustawiam wyższy próg pewności zgodnie z wymaganiem
-        confidence_threshold = 0.75  # Zwiększono z 0.3 na 0.75
+        # Ustawiam niższy próg pewności - tak jak w test.py
+        confidence_threshold = 0.75  # Zmniejszono z 0.75 na 0.5
         print(f"Liczba wykrytych obiektów przed filtrowaniem: {len(predictions['boxes'])}")
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
@@ -335,6 +371,97 @@ class Camera(QDialog):
             
         return result_frame, detections
 
+    def run_preprocessing(self):
+        """Ręczne uruchomienie preprocessingu obrazu"""
+        if not self.frozen or self.original_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie!")
+            return
+            
+        try:
+            # Wykonaj preprocessing
+            print("Uruchamiam preprocessing...")
+            processed_img = self.preprocess_image(self.original_frame.copy())
+            
+            # Zapisz przetworzony obraz
+            self.preprocessed_frame = processed_img.copy()
+            self.is_preprocessed = True
+            
+            # Wyświetl przetworzony obraz
+            self.show_frame(processed_img)
+            
+            # Aktywuj przyciski
+            self.analyze_button.setEnabled(True)
+            self.show_preprocessing_btn.setEnabled(True)
+            
+            QMessageBox.information(self, "Informacja", "Preprocessing zakończony. Możesz teraz uruchomić analizę.")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Błąd podczas preprocessingu: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def preprocess_image(self, image):
+        """
+        Rozszerzony preprocessing obrazu dla systemów AOI.
+        1) Korekcja optyczna dystorsji
+        2) Globalna normalizacja histogramu
+        3) Usuwanie szumu (medianowy lub Gauss) i filtr adaptacyjny bilateralny
+        4) Adaptacyjne wyrównanie kontrastu (CLAHE) na kanale LAB
+        5) Regulacja kontrastu i jasności
+        6) Rejestracja obrazu za pomocą fiduciali
+        7) Wstępna segmentacja (HSV i progi)
+
+        Zwraca przetworzony obraz BGR, a maski segmentacji są w self.masks.
+        """
+        # 1. Korekcja optyczna (dystorsja)
+        if hasattr(self, 'camera_matrix') and hasattr(self, 'dist_coeffs'):
+            image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)
+        # 2. Globalna normalizacja histogramu
+        normalized = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+
+        # 3. Odszumianie
+        # 3a. Filtr medianowy lub Gaussowski
+        if getattr(self, 'use_gaussian', False):
+            denoised = cv2.GaussianBlur(normalized, (3,3), 0)
+        else:
+            denoised = cv2.medianBlur(normalized, 3)
+        # 3b. Adaptacyjny filtr bilateralny
+        denoised = cv2.bilateralFilter(denoised, d=5, sigmaColor=75, sigmaSpace=75)
+
+        # 4. CLAHE na kanale L w przestrzeni LAB
+        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        cl = clahe.apply(l)
+        lab = cv2.merge((cl, a, b))
+        processed = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+        # 5. Regulacja kontrastu i jasności
+        result = cv2.convertScaleAbs(processed, alpha=1.1, beta=5)
+
+        # 6. Rejestracja obrazu (alignment) - fiduciale
+        if hasattr(self, 'fiducial_detector'):
+            pts_src = self.fiducial_detector.detect(image)
+            pts_dst = self.fiducial_detector.reference_points
+            if len(pts_src) >= 3:
+                M, _ = cv2.estimateAffinePartial2D(np.array(pts_src), np.array(pts_dst))
+                result = cv2.warpAffine(result, M, (result.shape[1], result.shape[0]))
+
+        # 7. Wstępna segmentacja
+        hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
+        # maska soldermask
+        lower_sm, upper_sm = getattr(self, 'soldermask_lower', (35, 50, 50)), getattr(self, 'soldermask_upper', (85, 255, 255))
+        sm_mask = cv2.inRange(hsv, lower_sm, upper_sm)
+        # maska padów (biały lub metaliczny)
+        pad_mask = cv2.inRange(result, getattr(self, 'pad_lower', (200,200,200)), getattr(self, 'pad_upper', (255,255,255)))
+        # maska otworów
+        hole_mask = cv2.bitwise_not(sm_mask)
+
+        # zapisz maski
+        self.masks = {'soldermask': sm_mask, 'pad': pad_mask, 'hole': hole_mask}
+
+        # zachowanie wyniku
+        self.preprocessed_frame = result
+        return result
 
     def update_frame(self):
         # Jeżeli analiza dotyczy statycznego obrazu, to nie próbujemy pobierać klatek z kamery
@@ -351,13 +478,21 @@ class Camera(QDialog):
         original_frame = frame.copy()
 
         if self.analyze:
-            frame, detections = self.detect_components(original_frame)  # Pobieramy detekcje
+            # Najpierw wykonujemy preprocessing obrazu
+            preprocessed_frame = self.preprocess_image(original_frame)
+            
+            # Następnie wykonujemy detekcję na przetworzonym obrazie
+            frame, detections = self.detect_components(preprocessed_frame)  # Pobieramy detekcje
             self.update_component_list(detections)  # Aktualizujemy listę ID komponentów
 
             # **Zamrażamy klatkę po analizie**  
             self.frozen_frame = frame.copy()  
             self.frozen_bboxes = self.bboxes.copy()  
             self.frozen = True  # Ustawiamy zamrożenie
+            
+            # Zachowujemy przetworzony obraz do podglądu
+            self.preprocessed_frame = preprocessed_frame.copy()
+            self.is_preprocessed = True
 
         # **Jeśli analiza została zatrzymana, pokazujemy zamrożoną klatkę**
         if self.frozen:
@@ -386,30 +521,95 @@ class Camera(QDialog):
         if self.recording and self.video_writer:
             self.video_writer.write(frame)  # Zapisujemy wideo
 
-
-
-    def show_frame(self, frame):
-        """Funkcja pomocnicza do wyświetlania obrazu"""
+    def show_frame(self, frame, info_text=None):
+        """Funkcja pomocnicza do wyświetlania obrazu - poprawiona skalowanie"""
         if frame is None:
             print("BŁĄD: Próba wyświetlenia pustej ramki!")
             return
             
         print(f"Wyświetlam ramkę o wymiarach: {frame.shape}")
-        frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
+        
+        # Dodanie informacji tekstowej na obrazie jeśli podano
+        display_frame = frame.copy()
+        if info_text:
+            cv2.putText(
+                display_frame, 
+                info_text, 
+                (10, 30), 
+                cv2.FONT_HERSHEY_SIMPLEX, 
+                1.0, 
+                (0, 0, 255), 
+                2
+            )
+        
+        # Używamy resize_with_aspect_ratio zamiast zwykłego resize
+        # aby zachować proporcje obrazu
+        frame_resized = self.resize_with_aspect_ratio(
+            display_frame, 
+            self.cap_label.width(), 
+            self.cap_label.height()
+        )
+        
         h, w, ch = frame_resized.shape
         bytes_per_line = ch * w
+        
+        # Zapewniamy poprawny format koloru (BGR dla OpenCV)
         qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
 
         if self.recording and self.video_writer:
-            self.video_writer.write(frame) 
-
+            self.video_writer.write(frame)
+            
+    def toggle_preprocessing_view(self):
+        """Przełącza widok między oryginalnym obrazem a obrazem po preprocessingu"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+            
+        if self.preprocessing_visible:
+            # Jeśli pokazujemy preprocessed, przełącz na oryginalny z boxami
+            if hasattr(self, 'original_with_boxes') and self.original_with_boxes is not None:
+                self.show_frame(self.original_with_boxes, "Oryginalny obraz z detekcją")
+                self.show_preprocessing_btn.setText("Pokaż preprocessing")
+            else:
+                # Jeśli nie mamy zapisanego oryginału z boxami, użyj bieżącej klatki
+                if self.original_frame is not None:
+                    # Narysuj boxy na kopii oryginalnego obrazu
+                    display_frame = self.original_frame.copy()
+                    for bbox in self.bboxes:
+                        x1, y1, x2, y2 = bbox["bbox"]
+                        color = bbox["color"]
+                        cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
+                        cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+                    self.show_frame(display_frame, "Oryginalny obraz z detekcją")
+                else:
+                    self.show_frame(self.frozen_frame, "Obraz z detekcją")
+                self.show_preprocessing_btn.setText("Pokaż preprocessing")
+        else:
+            # Jeśli pokazujemy oryginalny, przełącz na preprocessed
+            # Najpierw zachowaj aktualny obraz z boxami
+            if self.original_frame is not None:
+                self.original_with_boxes = self.frozen_frame.copy()
+            
+            # Wyświetl obraz po preprocessingu z boxami
+            preprocessed_with_boxes = self.preprocessed_frame.copy()
+            for bbox in self.bboxes:
+                x1, y1, x2, y2 = bbox["bbox"]
+                color = bbox["color"]
+                cv2.rectangle(preprocessed_with_boxes, (x1, y1), (x2, y2), color, 4)
+                cv2.putText(preprocessed_with_boxes, bbox["id"], (x1, y1-10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+                            
+            self.show_frame(preprocessed_with_boxes, "Preprocessed z detekcją")
+            self.show_preprocessing_btn.setText("Pokaż oryginalny")
+            
+        self.preprocessing_visible = not self.preprocessing_visible
 
     def show_frozen_frame(self):
         """Wyświetla ostatnią zamrożoną klatkę"""
         if self.frozen_frame is not None:
             self.show_frame(self.frozen_frame)
-
 
     def clear_image(self):
         """Resetuje obraz i wznawia działanie kamery"""
@@ -425,9 +625,6 @@ class Camera(QDialog):
         if self.analyze:
             self.analyze = False
             self.analyze_button.setText("Analiza")
-
-
-
 
     def update_component_list(self, detections):
         """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów"""
@@ -445,7 +642,6 @@ class Camera(QDialog):
             self.bboxes.append({"id": id_, "bbox": (x1, y1, x2, y2), "color": (0, 255, 0), "score": detection["score"]})  # zielony
         
         print(f"Zaktualizowano listę komponentów, dodano {len(self.bboxes)} elementów")
-
 
     def highlight_bbox(self, item):
         """Zmienia kolor bounding boxa po kliknięciu w ID na liście"""
@@ -488,9 +684,6 @@ class Camera(QDialog):
                 print("Zaktualizowano wyświetlanie statycznego obrazu")
                 
             self.cap_label.repaint()  # Wymuś ponowne narysowanie
-
-
-
 
     def closeEvent(self, event):
         self.stop_camera()
