@@ -1,1 +1,0 @@
-<annotation><folder>dataset</folder><filename>ML365_Bottom.jpg</filename><size><width>4112</width><height>3008</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>889</xmin><ymin>780</ymin><xmax>1041</xmax><ymax>912</ymax></bndbox></object></annotation>

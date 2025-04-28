@@ -1,1 +1,0 @@
-<annotation><folder /><filename>daccbbfd-22.jpg</filename><path>dataset/inductor-jpg/daccbbfd-22.jpg</path><size><width>612</width><height>612</height><depth>3</depth></size><object><name>Induktor</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>322</xmin><ymin>247</ymin><xmax>386</xmax><ymax>312</ymax></bndbox></object></annotation>

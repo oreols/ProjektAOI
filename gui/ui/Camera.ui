@@ -132,6 +132,19 @@
      <string>Pokaż preprocessing</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="pos_file">
+    <property name="geometry">
+     <rect>
+      <x>330</x>
+      <y>820</y>
+      <width>201</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Nałóż plik POS</string>
+    </property>
+   </widget>
    <widget class="QComboBox" name="component">
     <property name="geometry">
      <rect>
@@ -210,6 +223,19 @@
      <string>wyczyść</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="mirror_button">
+    <property name="geometry">
+     <rect>
+      <x>560</x>
+      <y>850</y>
+      <width>201</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>odbicie lustrzane</string>
+    </property>
+   </widget>
    <zorder>cap</zorder>
    <zorder>analyze_button</zorder>
    <zorder>start_button</zorder>
@@ -218,12 +244,14 @@
    <zorder>record_button</zorder>
    <zorder>preprocessing_btn</zorder>
    <zorder>show_preprocessing_btn</zorder>
+   <zorder>pos_file</zorder>
    <zorder>component</zorder>
    <zorder>label_3</zorder>
    <zorder>label_4</zorder>
    <zorder>count_elements</zorder>
    <zorder>component_list</zorder>
    <zorder>clear_image_button</zorder>
+   <zorder>mirror_button</zorder>
   </widget>
  </widget>
  <resources/>

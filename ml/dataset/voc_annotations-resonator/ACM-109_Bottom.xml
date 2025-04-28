@@ -1,1 +1,0 @@
-<annotation><folder>dataset</folder><filename>ACM-109_Bottom.jpg</filename><size><width>560</width><height>701</height><depth>3</depth></size><object><name>rezonator</name><pose>Unspecified</pose><truncated>0</truncated><difficult>0</difficult><bndbox><xmin>14</xmin><ymin>312</ymin><xmax>72</xmax><ymax>355</ymax></bndbox></object></annotation>

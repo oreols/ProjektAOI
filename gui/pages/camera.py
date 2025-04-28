@@ -69,6 +69,7 @@ class Camera(QDialog):
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
         self.clear_image_button.clicked.connect(self.clear_image)
         self.pos_file.clicked.connect(self.on_pos_file_click)
+        self.mirror_button.clicked.connect(self.toggle_mirror)
 
 
 
@@ -99,27 +100,28 @@ class Camera(QDialog):
         self.analyze_button.setEnabled(False)
         self.show_preprocessing_btn.setEnabled(False)  # Początkowo nie ma nic do pokazania
 
+        self.is_mirrored = False  # Flaga do śledzenia stanu odbicia lustrzanego
+
     # Przycisk z poprawioną funkcjonalnością
     def on_pos_file_click(self):
-        # Utwórz okno dialogowe z pytaniem
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Question)
-        msg_box.setWindowTitle("Wybór strony")
-        msg_box.setText("Czy element znajduje się na górze (top) czy na dole (bottom)?")
-        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg_box.setDefaultButton(QMessageBox.No)
+        # Sprawdź, czy obraz został przetworzony
+        if self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw wczytaj i przetwórz obraz!")
+            return
+            
+        # Wyświetl dialog wyboru pliku
+        options = QFileDialog.Options()
+        pos_file_path, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz plik POS", "./pos_files/", 
+            "Pliki CSV (*.csv);;Wszystkie pliki (*)", 
+            options=options
+        )
         
-        # Oczekiwanie na odpowiedź użytkownika
-        result = msg_box.exec_()
-        
-        # Jeśli użytkownik wybierze "Tak" (top), wybierz plik nano-top-pos.csv
-        if result == QMessageBox.Yes:
-            pos_file_path = "./pos_files/nano-top-pos.csv"
-        else:
-            # Jeśli wybierze "Nie" (bottom), wybierz plik nano-bottom-pos.csv
-            pos_file_path = "./pos_files/nano-bottom-pos.csv"
-
-        # Wywołaj funkcję overlay_pos_markers z odpowiednim plikiem
+        # Jeśli użytkownik anulował wybór pliku
+        if not pos_file_path:
+            return
+            
+        # Wywołaj funkcję overlay_pos_markers z wybranym plikiem
         self.overlay_pos_markers(self.preprocessed_frame, pos_file_path, self.cap_label.width(), self.cap_label.height())
 
 
@@ -1311,15 +1313,14 @@ class Camera(QDialog):
             cv2.putText(frame, "Analiza wyłączona - kliknij 'Analiza' aby rozpocząć",
                         (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # Wyświetlanie obrazu
-        frame_resized = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
-        h, w, ch = frame_resized.shape
-        bytes_per_line = ch * w
-        qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
-        self.cap_label.setPixmap(QPixmap.fromImage(qimg))
-
+        # Wyświetlanie obrazu za pomocą metody show_frame
+        self.show_frame(frame)
+        
+        # Zapisujemy nagranie wideo, jeśli jest włączone
         if self.recording and self.video_writer:
-            self.video_writer.write(frame)  # Zapisujemy wideo
+            # Powinniśmy zapisać oryginalną ramkę, a nie już przetworzoną z show_frame
+            # aby uniknąć zapisywania efektu odbicia lustrzanego w pliku wideo
+            self.video_writer.write(original_frame)
 
     def show_frame(self, frame, info_text=None):
         """Funkcja pomocnicza do wyświetlania obrazu - poprawiona skalowanie"""
@@ -1341,6 +1342,10 @@ class Camera(QDialog):
                 (0, 0, 255), 
                 2
             )
+        
+        # Jeśli włączono odbicie lustrzane, odbijamy obraz
+        if self.is_mirrored:
+            display_frame = cv2.flip(display_frame, 1)  # 1 oznacza odbicie w poziomie (wokół osi Y)
         
         # Używamy resize_with_aspect_ratio zamiast zwykłego resize
         # aby zachować proporcje obrazu
@@ -1477,3 +1482,17 @@ class Camera(QDialog):
     def closeEvent(self, event):
         self.stop_camera()
         event.accept()
+
+    def toggle_mirror(self):
+        """Przełącza stan odbicia lustrzanego obrazu"""
+        self.is_mirrored = not self.is_mirrored
+        
+        # Aktualizuj etykietę przycisku
+        if self.is_mirrored:
+            self.mirror_button.setText("wyłącz odbicie")
+        else:
+            self.mirror_button.setText("odbicie lustrzane")
+            
+        # Jeśli mamy zamrożoną klatkę, od razu ją aktualizujemy
+        if self.frozen and self.frozen_frame is not None:
+            self.show_frame(self.frozen_frame)
