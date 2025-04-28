@@ -12,9 +12,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from io import BytesIO
-
-# Add the parent directory to sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import csv
 
 class Camera(QDialog):
     def __init__(self):
@@ -33,6 +31,7 @@ class Camera(QDialog):
         self.is_preprocessed = False  # Flaga czy obraz został już przetworzony
         self.pcb_contour = None  # Przechowuje kontur płytki PCB
         self.pcb_corners = None  # Przechowuje rogi płytki PCB
+        self.pos_putted_on = False  # Flaga czy pozycje zostały nałożone na obraz
 
         self.model_paths = {
             "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/capacitors_model_epoch_19_mAP_0.815.pth")),
@@ -69,6 +68,10 @@ class Camera(QDialog):
         self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
         self.clear_image_button.clicked.connect(self.clear_image)
+        self.pos_file.clicked.connect(self.on_pos_file_click)
+
+
+
         
         # Zmiana tekstu przycisku aby odzwierciedlał jego nową funkcję
         self.virtual_cam_button.setText("Wczytaj zdjęcie")
@@ -95,6 +98,30 @@ class Camera(QDialog):
         # Dezaktywuj przycisk analizy - najpierw musi być preprocessing
         self.analyze_button.setEnabled(False)
         self.show_preprocessing_btn.setEnabled(False)  # Początkowo nie ma nic do pokazania
+
+    # Przycisk z poprawioną funkcjonalnością
+    def on_pos_file_click(self):
+        # Utwórz okno dialogowe z pytaniem
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Question)
+        msg_box.setWindowTitle("Wybór strony")
+        msg_box.setText("Czy element znajduje się na górze (top) czy na dole (bottom)?")
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+        
+        # Oczekiwanie na odpowiedź użytkownika
+        result = msg_box.exec_()
+        
+        # Jeśli użytkownik wybierze "Tak" (top), wybierz plik nano-top-pos.csv
+        if result == QMessageBox.Yes:
+            pos_file_path = "./pos_files/nano-top-pos.csv"
+        else:
+            # Jeśli wybierze "Nie" (bottom), wybierz plik nano-bottom-pos.csv
+            pos_file_path = "./pos_files/nano-bottom-pos.csv"
+
+        # Wywołaj funkcję overlay_pos_markers z odpowiednim plikiem
+        self.overlay_pos_markers(self.preprocessed_frame, pos_file_path, self.cap_label.width(), self.cap_label.height())
+
 
     def load_model(self, model_path):
         if os.path.exists(model_path):
@@ -184,18 +211,25 @@ class Camera(QDialog):
             new_height = target_height
             new_width = int(new_height * aspect_ratio)
 
-        # frame = cv2.resize(frame, (self.cap_label.width(), self.cap_label.height()), interpolation=cv2.INTER_LINEAR)
         resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+
+        top = (target_height - new_height) // 2
+        bottom = (target_height - new_height + 1) // 2
+        left = (target_width - new_width) // 2
+        right = (target_width - new_width + 1) // 2
+
         result = cv2.copyMakeBorder(
             resized_frame,
-            (target_height - new_height) // 2,
-            (target_height - new_height + 1) // 2,
-            (target_width - new_width) // 2,
-            (target_width - new_width + 1) // 2,
+            top,
+            bottom,
+            left,
+            right,
             cv2.BORDER_CONSTANT,
             value=(0, 0, 0),
         )
-        return result
+
+        return result, left, top  # <--- Zwracasz też marginesy
+
 
     def start_camera(self):
         if self.cap is not None and self.cap.isOpened():
@@ -227,19 +261,19 @@ class Camera(QDialog):
 
     def toggle_analysis(self):
         # Sprawdź czy preprocessing został wykonany
-        if self.frozen and not self.is_preprocessed:
-            QMessageBox.warning(self, "Uwaga", "Najpierw wykonaj preprocessing!")
+        if self.frozen and not self.is_preprocessed and not self.overlayed_frame:
+            QMessageBox.warning(self, "Uwaga", "Najpierw wykonaj preprocessing i nałóż pos!")
             return
             
         self.analyze = not self.analyze
         self.analyze_button.setText("Wyłącz Analizę" if self.analyze else "Analiza")
         
         # Jeśli włączono analizę i mamy załadowany obraz statyczny
-        if self.analyze and self.frozen and self.preprocessed_frame is not None and self.cap is None:
+        if self.analyze and self.frozen and self.preprocessed_frame is not None and self.cap is None and self.overlayed_frame is not None:
             print("Analizuję statyczny obraz...")
             
             # Użyj przetworzonego obrazu do analizy
-            analyze_frame = self.preprocessed_frame.copy()
+            analyze_frame = self.overlayed_frame.copy()
                 
             print(f"Analizuję obraz o wymiarach: {analyze_frame.shape}")
                 
@@ -248,7 +282,7 @@ class Camera(QDialog):
             self.update_component_list(detections)
             
             # Rysowanie bounding boxów na obrazie
-            display_frame = self.preprocessed_frame.copy()  # Rysuj na przetworzonym obrazie
+            display_frame = self.overlayed_frame.copy()  # Rysuj na przetworzonym obrazie
             for bbox in self.bboxes:
                 x1, y1, x2, y2 = bbox["bbox"]
                 color = bbox["color"]
@@ -268,7 +302,7 @@ class Camera(QDialog):
             
             # Zapisz wyniki detekcji wraz z obrazem
             self.detection_result = {
-                "image": self.preprocessed_frame.copy(),
+                "image": self.overlayed_frame.copy(),
                 "detections": self.bboxes.copy()
             }
 
@@ -407,7 +441,7 @@ class Camera(QDialog):
             self.preprocessing_visible = True
             self.show_preprocessing_btn.setText("Pokaż detekcję")
             
-            QMessageBox.information(self, "Informacja", "Płytka PCB została wycięta i przetworzona. Możesz teraz uruchomić analizę.")
+            QMessageBox.information(self, "Informacja", "Płytka PCB została wycięta i przetworzona. Możesz teraz możesz nałożyć POS.")
         except Exception as e:
             QMessageBox.critical(self, "Błąd", f"Błąd podczas preprocessingu: {str(e)}")
             import traceback
@@ -439,7 +473,7 @@ class Camera(QDialog):
             largest_contour = max(contours, key=cv2.contourArea)
             rect = cv2.minAreaRect(largest_contour)
             corners = cv2.boxPoints(rect)
-            corners = np.int0(corners)
+            corners = corners.astype(int)
         
         # Jeśli mamy narożniki, użyj ich do określenia orientacji
         if corners is not None and len(corners) == 4:
@@ -625,8 +659,7 @@ class Camera(QDialog):
         # Znajdź prostokąt ograniczający kontur
         rect = cv2.minAreaRect(largest_contour)
         box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        
+        box = box.astype(int)
         # Narysuj prostokąt na obrazie dla wizualizacji
         cv2.drawContours(display_img, [box], 0, (0, 0, 255), 3)
         self.show_frame(display_img, "Ograniczający prostokąt płytki PCB")
@@ -724,7 +757,7 @@ class Camera(QDialog):
             # Znajdź ograniczający prostokąt
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
-            box = np.int0(box)
+            box = box.astype(int)
             
             # Sprawdź proporcje prostokąta
             width = np.linalg.norm(box[0] - box[1])
@@ -830,7 +863,7 @@ class Camera(QDialog):
             # Znajdź ograniczający prostokąt
             rect = cv2.minAreaRect(largest_contour)
             box = cv2.boxPoints(rect)
-            box = np.int0(box)
+            box = box.astype(int)
             
             # Narysuj prostokąt na obrazie
             display_img = image.copy()
@@ -1119,6 +1152,85 @@ class Camera(QDialog):
         # zachowanie wyniku
         self.preprocessed_frame = result
         return result
+    def load_and_preprocess_image(self, image):
+        """
+        Wczytuje obraz, oblicza marginesy oraz rozmiar obrazu w oknie.
+        Funkcja nie wykonuje preprocessingu.
+        """
+        # 1. Uzyskaj rozmiary obrazu
+        original_height, original_width, _ = image.shape
+
+        # 2. Resize do rozmiaru labelki (z zachowaniem proporcji)
+        resized_frame, margin_x, margin_y = self.resize_with_aspect_ratio(
+            image,  # używamy oryginalnego obrazu, bez preprocessingu
+            self.cap_label.width(),  # szerokość labelki
+            self.cap_label.height()  # wysokość labelki
+        )
+
+        # 3. Zapisz rozmiar obrazu w oknie i marginesy jako atrybuty obiektu
+        self.resized_frame = resized_frame
+        self.margin_x = margin_x
+        self.margin_y = margin_y
+
+    def overlay_pos_markers(self, preprocessed_frame, pos_file_path, target_width, target_height, pcb_width_mm=43.18, pcb_height_mm=17.78):
+        """
+        Nakłada punkty z pliku POS na obraz płytki PCB.
+        :param preprocessed_frame: obraz płytki (przed resize)
+        :param pos_file_path: ścieżka do pliku POS (.csv)
+        :param pcb_width_mm: fizyczna szerokość płytki w mm
+        :param pcb_height_mm: fizyczna wysokość płytki w mm
+        :return: obraz z nałożonymi punktami
+        """
+        # Wywołanie preprocessing i resize
+        self.load_and_preprocess_image(preprocessed_frame)
+
+        print("Rozpoczynam nakładanie markerów POS...")
+        print(f"Rozmiar płytki: {pcb_width_mm} mm x {pcb_height_mm} mm")
+        print(f"Rozmiar okna: {target_width} x {target_height} pikseli")
+
+        # Skala w pikselach na mm, ale biorąc pod uwagę rozmiar okna
+        resized_h, resized_w, _ = self.preprocessed_frame.shape
+        scale_x = resized_w / pcb_width_mm  # Piksele na mm (szerokość)
+        scale_y = resized_h / pcb_height_mm  # Piksele na mm (wysokość)
+
+        print(f"Skala: {scale_x} x {scale_y}")
+        print(f"Marginesy: {self.margin_x} x {self.margin_y}")
+
+
+        # Kopia obrazu do rysowania
+        result = self.preprocessed_frame.copy()
+
+        # Czytaj plik POS
+        with open(pos_file_path, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Współrzędne w mm
+                try:
+                    pos_x_mm = float(row["PosX"]) - 126.873
+                    pos_y_mm = float(row["PosY"]) + 96.114
+                    ref = row["Ref"]
+                    print(f"Wartości z POS: {ref} ({pos_x_mm}, {pos_y_mm})")
+                except (ValueError, KeyError):
+                    continue  # Pomiń błędne wpisy
+
+                # Przekształcenie współrzędnych POS na współrzędne w pikselach
+                pixel_x = int((pos_x_mm ) * scale_x)
+                pixel_y = int(-(pos_y_mm ) * scale_y)     # Odwracamy oś Y
+                print(f"Współrzędne w pikselach dla {ref}: ({pixel_x}, {pixel_y})")
+
+                # Rysowanie punktu na obrazie
+                cv2.circle(result, (pixel_x, pixel_y), 8, (0, 0, 255), -1)
+
+                # Opcjonalnie: Rysowanie napisu 'Ref' obok punktu
+                cv2.putText(result, ref, (pixel_x + 8, pixel_y - 5), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1, cv2.LINE_AA)
+
+        self.pos_putted_on = True  # Ustaw flagę, że POS został nałożony
+
+        self.overlayed_frame = result.copy()
+        self.show_frame(result, "Obraz z nałożonymi markerami POS")
+
+
 
     def update_frame(self):
         # Jeżeli analiza dotyczy statycznego obrazu, to nie próbujemy pobierać klatek z kamery
@@ -1232,7 +1344,7 @@ class Camera(QDialog):
         
         # Używamy resize_with_aspect_ratio zamiast zwykłego resize
         # aby zachować proporcje obrazu
-        frame_resized = self.resize_with_aspect_ratio(
+        frame_resized,margin_x,margin_y = self.resize_with_aspect_ratio(
             display_frame, 
             self.cap_label.width(), 
             self.cap_label.height()
