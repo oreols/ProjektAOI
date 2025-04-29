@@ -263,19 +263,25 @@ class Camera(QDialog):
 
     def toggle_analysis(self):
         # Sprawdź czy preprocessing został wykonany
-        if self.frozen and not self.is_preprocessed and not self.overlayed_frame:
-            QMessageBox.warning(self, "Uwaga", "Najpierw wykonaj preprocessing i nałóż pos!")
+        if self.frozen and not self.is_preprocessed:
+            QMessageBox.warning(self, "Uwaga", "Najpierw wykonaj preprocessing!")
             return
             
         self.analyze = not self.analyze
         self.analyze_button.setText("Wyłącz Analizę" if self.analyze else "Analiza")
         
         # Jeśli włączono analizę i mamy załadowany obraz statyczny
-        if self.analyze and self.frozen and self.preprocessed_frame is not None and self.cap is None and self.overlayed_frame is not None:
+        if self.analyze and self.frozen and self.preprocessed_frame is not None and self.cap is None:
             print("Analizuję statyczny obraz...")
             
             # Użyj przetworzonego obrazu do analizy
-            analyze_frame = self.overlayed_frame.copy()
+            # Jeśli mamy nałożone markery POS, użyj overlayed_frame, w przeciwnym przypadku użyj preprocessed_frame
+            if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+                analyze_frame = self.overlayed_frame.copy()
+                print("Używam obrazu z nałożonymi markerami POS")
+            else:
+                analyze_frame = self.preprocessed_frame.copy()
+                print("Używam obrazu po preprocessingu (bez markerów POS)")
                 
             print(f"Analizuję obraz o wymiarach: {analyze_frame.shape}")
                 
@@ -284,7 +290,12 @@ class Camera(QDialog):
             self.update_component_list(detections)
             
             # Rysowanie bounding boxów na obrazie
-            display_frame = self.overlayed_frame.copy()  # Rysuj na przetworzonym obrazie
+            # Bazowy obraz do wyświetlenia - ten sam, który użyliśmy do analizy
+            if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+                display_frame = self.overlayed_frame.copy()
+            else:
+                display_frame = self.preprocessed_frame.copy()
+                
             for bbox in self.bboxes:
                 x1, y1, x2, y2 = bbox["bbox"]
                 color = bbox["color"]
@@ -304,7 +315,7 @@ class Camera(QDialog):
             
             # Zapisz wyniki detekcji wraz z obrazem
             self.detection_result = {
-                "image": self.overlayed_frame.copy(),
+                "image": display_frame.copy(),
                 "detections": self.bboxes.copy()
             }
 
@@ -388,7 +399,7 @@ class Camera(QDialog):
         count = 0
         
         # Ustawiam niższy próg pewności - tak jak w test.py
-        confidence_threshold = 0.75  # Zmniejszono z 0.75 na 0.5
+        confidence_threshold = 0.9  # Zmniejszono z 0.75 na 0.5
         print(f"Liczba wykrytych obiektów przed filtrowaniem: {len(predictions['boxes'])}")
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
@@ -975,15 +986,14 @@ class Camera(QDialog):
 
     def preprocess_image(self, image):
         """
-        Rozszerzony preprocessing obrazu dla systemów AOI.
+        Delikatny preprocessing obrazu dla systemów AOI.
         0) Wykrycie i wycięcie płytki PCB
-        1) Korekcja optyczna dystorsji
-        2) Globalna normalizacja histogramu
-        3) Usuwanie szumu (medianowy lub Gauss) i filtr adaptacyjny bilateralny
-        4) Adaptacyjne wyrównanie kontrastu (CLAHE) na kanale LAB
-        5) Regulacja kontrastu i jasności
-        6) Rejestracja obrazu za pomocą fiduciali
-        7) Wstępna segmentacja (HSV i progi)
+        1) Korekcja optyczna dystorsji (jeśli dostępna)
+        2) Delikatne odszumianie
+        3) Delikatna poprawa kontrastu
+        4) Bardzo subtelne wyrównanie histogramu
+        5) Rejestracja obrazu za pomocą fiduciali (jeśli dostępna)
+        6) Wstępna segmentacja (HSV i progi)
 
         Zwraca przetworzony obraz BGR, a maski segmentacji są w self.masks.
         """
@@ -999,46 +1009,36 @@ class Camera(QDialog):
         # Zapisz oryginalne wymiary obrazu z płytką do późniejszego odniesienia
         self.pcb_image_original = pcb_image.copy()
         
-        # 1. Korekcja optyczna (dystorsja)
+        # 1. Korekcja optyczna (dystorsji) - bez zmian, to potrzebna korekcja
         if hasattr(self, 'camera_matrix') and hasattr(self, 'dist_coeffs'):
             pcb_image = cv2.undistort(pcb_image, self.camera_matrix, self.dist_coeffs)
             
-        # 2. Globalna normalizacja histogramu
-        normalized = cv2.normalize(pcb_image, None, 0, 255, cv2.NORM_MINMAX)
-        
-        # Pokaż obraz po normalizacji
-        self.show_frame(normalized, "Obraz po normalizacji histogramu")
-
-        # 3. Odszumianie
-        # 3a. Filtr medianowy lub Gaussowski
-        if getattr(self, 'use_gaussian', False):
-            denoised = cv2.GaussianBlur(normalized, (3,3), 0)
-        else:
-            denoised = cv2.medianBlur(normalized, 3)
-        # 3b. Adaptacyjny filtr bilateralny
-        denoised = cv2.bilateralFilter(denoised, d=5, sigmaColor=75, sigmaSpace=75)
+        # 2. Delikatne odszumianie - nieco silniejsze niż poprzednio, ale wciąż subtelne
+        # Używamy łagodnego filtra bilateralnego
+        denoised = cv2.bilateralFilter(pcb_image, d=3, sigmaColor=15, sigmaSpace=15)
         
         # Pokaż obraz po odszumianiu
-        self.show_frame(denoised, "Obraz po odszumianiu")
-
-        # 4. CLAHE na kanale L w przestrzeni LAB
-        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        cl = clahe.apply(l)
-        lab = cv2.merge((cl, a, b))
-        processed = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        self.show_frame(denoised, "Obraz po delikatnym odszumianiu")
         
-        # Pokaż obraz po CLAHE
-        self.show_frame(processed, "Obraz po CLAHE")
-
-        # 5. Regulacja kontrastu i jasności
-        result = cv2.convertScaleAbs(processed, alpha=1.1, beta=5)
+        # 3. Delikatna poprawa kontrastu i jasności
+        adjusted = cv2.convertScaleAbs(denoised, alpha=1.05, beta=3)
         
-        # Pokaż obraz po regulacji kontrastu
-        self.show_frame(result, "Obraz po regulacji kontrastu")
+        # Pokaż obraz po delikatnej poprawie kontrastu
+        self.show_frame(adjusted, "Obraz po delikatnej poprawie kontrastu")
+        
+        # 4. Bardzo subtelne wyrównanie histogramu tylko na kanale jasności
+        hsv = cv2.cvtColor(adjusted, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        # Bardzo delikatne CLAHE
+        clahe = cv2.createCLAHE(clipLimit=1.3, tileGridSize=(8,8))
+        v = clahe.apply(v)
+        hsv = cv2.merge([h, s, v])
+        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        
+        # Pokaż obraz po delikatnym wyrównaniu histogramu
+        self.show_frame(result, "Obraz po delikatnym wyrównaniu histogramu")
 
-        # 6. Rejestracja obrazu (alignment) - fiduciale
+        # 5. Rejestracja obrazu (alignment) - fiduciale (bez zmian, to potrzebna funkcjonalność)
         if hasattr(self, 'fiducial_detector'):
             pts_src = self.fiducial_detector.detect(pcb_image)
             pts_dst = self.fiducial_detector.reference_points
@@ -1046,7 +1046,7 @@ class Camera(QDialog):
                 M, _ = cv2.estimateAffinePartial2D(np.array(pts_src), np.array(pts_dst))
                 result = cv2.warpAffine(result, M, (result.shape[1], result.shape[0]))
 
-        # 7. Wstępna segmentacja
+        # 6. Wstępna segmentacja (bez zmian, to tylko analityczne maski)
         hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
         # maska soldermask
         lower_sm, upper_sm = getattr(self, 'soldermask_lower', (35, 50, 50)), getattr(self, 'soldermask_upper', (85, 255, 255))
@@ -1070,62 +1070,51 @@ class Camera(QDialog):
 
     def preprocess_image_skip_detection(self, image):
         """
-        Wykonuje preprocessing obrazu PCB bez etapu wykrywania płytki.
+        Wykonuje delikatny preprocessing obrazu PCB bez etapu wykrywania płytki.
         Ten obraz powinien być już przyciętą płytką PCB.
         
-        1) Korekcja optyczna dystorsji
-        2) Globalna normalizacja histogramu
-        3) Usuwanie szumu (medianowy lub Gauss) i filtr adaptacyjny bilateralny
-        4) Adaptacyjne wyrównanie kontrastu (CLAHE) na kanale LAB
-        5) Regulacja kontrastu i jasności
-        6) Rejestracja obrazu za pomocą fiduciali
-        7) Wstępna segmentacja (HSV i progi)
+        1) Korekcja optyczna dystorsji (jeśli dostępna)
+        2) Delikatne odszumianie
+        3) Delikatna poprawa kontrastu
+        4) Bardzo subtelne wyrównanie histogramu
+        5) Rejestracja obrazu za pomocą fiduciali (jeśli dostępna)
+        6) Wstępna segmentacja (HSV i progi)
 
         Zwraca przetworzony obraz BGR, a maski segmentacji są w self.masks.
         """
         # Zapisz oryginalne wymiary obrazu z płytką do późniejszego odniesienia
         self.pcb_image_original = image.copy()
         
-        # 1. Korekcja optyczna (dystorsja)
+        # 1. Korekcja optyczna (dystorsji) - bez zmian, to potrzebna korekcja
         if hasattr(self, 'camera_matrix') and hasattr(self, 'dist_coeffs'):
             image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)
             
-        # 2. Globalna normalizacja histogramu
-        normalized = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
-        
-        # Pokaż obraz po normalizacji
-        self.show_frame(normalized, "Obraz po normalizacji histogramu")
-
-        # 3. Odszumianie
-        # 3a. Filtr medianowy lub Gaussowski
-        if getattr(self, 'use_gaussian', False):
-            denoised = cv2.GaussianBlur(normalized, (3,3), 0)
-        else:
-            denoised = cv2.medianBlur(normalized, 3)
-        # 3b. Adaptacyjny filtr bilateralny
-        denoised = cv2.bilateralFilter(denoised, d=5, sigmaColor=75, sigmaSpace=75)
+        # 2. Delikatne odszumianie - nieco silniejsze niż poprzednio, ale wciąż subtelne
+        # Używamy łagodnego filtra bilateralnego
+        denoised = cv2.bilateralFilter(image, d=3, sigmaColor=15, sigmaSpace=15)
         
         # Pokaż obraz po odszumianiu
-        self.show_frame(denoised, "Obraz po odszumianiu")
-
-        # 4. CLAHE na kanale L w przestrzeni LAB
-        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        cl = clahe.apply(l)
-        lab = cv2.merge((cl, a, b))
-        processed = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        self.show_frame(denoised, "Obraz po delikatnym odszumianiu")
         
-        # Pokaż obraz po CLAHE
-        self.show_frame(processed, "Obraz po CLAHE")
-
-        # 5. Regulacja kontrastu i jasności
-        result = cv2.convertScaleAbs(processed, alpha=1.1, beta=5)
+        # 3. Delikatna poprawa kontrastu i jasności
+        adjusted = cv2.convertScaleAbs(denoised, alpha=1.05, beta=3)
         
-        # Pokaż obraz po regulacji kontrastu
-        self.show_frame(result, "Obraz po regulacji kontrastu")
+        # Pokaż obraz po delikatnej poprawie kontrastu
+        self.show_frame(adjusted, "Obraz po delikatnej poprawie kontrastu")
+        
+        # 4. Bardzo subtelne wyrównanie histogramu tylko na kanale jasności
+        hsv = cv2.cvtColor(adjusted, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        # Bardzo delikatne CLAHE
+        clahe = cv2.createCLAHE(clipLimit=1.3, tileGridSize=(8,8))
+        v = clahe.apply(v)
+        hsv = cv2.merge([h, s, v])
+        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        
+        # Pokaż obraz po delikatnym wyrównaniu histogramu
+        self.show_frame(result, "Obraz po delikatnym wyrównaniu histogramu")
 
-        # 6. Rejestracja obrazu (alignment) - fiduciale
+        # 5. Rejestracja obrazu (alignment) - fiduciale (bez zmian, to potrzebna funkcjonalność)
         if hasattr(self, 'fiducial_detector'):
             pts_src = self.fiducial_detector.detect(image)
             pts_dst = self.fiducial_detector.reference_points
@@ -1133,7 +1122,7 @@ class Camera(QDialog):
                 M, _ = cv2.estimateAffinePartial2D(np.array(pts_src), np.array(pts_dst))
                 result = cv2.warpAffine(result, M, (result.shape[1], result.shape[0]))
 
-        # 7. Wstępna segmentacja
+        # 6. Wstępna segmentacja (bez zmian, to tylko analityczne maski)
         hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
         # maska soldermask
         lower_sm, upper_sm = getattr(self, 'soldermask_lower', (35, 50, 50)), getattr(self, 'soldermask_upper', (85, 255, 255))
@@ -1154,6 +1143,7 @@ class Camera(QDialog):
         # zachowanie wyniku
         self.preprocessed_frame = result
         return result
+
     def load_and_preprocess_image(self, image):
         """
         Wczytuje obraz, oblicza marginesy oraz rozmiar obrazu w oknie.
@@ -1183,6 +1173,9 @@ class Camera(QDialog):
         :param pcb_height_mm: fizyczna wysokość płytki w mm
         :return: obraz z nałożonymi punktami
         """
+        # Zapisz ścieżkę do pliku POS dla ponownego nakładania przy zmianie odbicia
+        self.pos_file_path = pos_file_path
+        
         # Wywołanie preprocessing i resize
         self.load_and_preprocess_image(preprocessed_frame)
 
@@ -1216,8 +1209,14 @@ class Camera(QDialog):
                     continue  # Pomiń błędne wpisy
 
                 # Przekształcenie współrzędnych POS na współrzędne w pikselach
-                pixel_x = int((pos_x_mm ) * scale_x)
-                pixel_y = int(-(pos_y_mm ) * scale_y)     # Odwracamy oś Y
+                # Uwzględnienie odbicia lustrzanego dla współrzędnej X jeśli aktywne
+                if self.is_mirrored:
+                    pixel_x = int((pcb_width_mm - pos_x_mm) * scale_x)  # Odbicie w poziomie
+                    print(f"Stosowanie odbicia lustrzanego dla POS {ref}")
+                else:
+                    pixel_x = int(pos_x_mm * scale_x)
+                
+                pixel_y = int(-(pos_y_mm) * scale_y)     # Odwracamy oś Y
                 print(f"Współrzędne w pikselach dla {ref}: ({pixel_x}, {pixel_y})")
 
                 # Rysowanie punktu na obrazie
@@ -1343,9 +1342,9 @@ class Camera(QDialog):
                 2
             )
         
-        # Jeśli włączono odbicie lustrzane, odbijamy obraz
-        if self.is_mirrored:
-            display_frame = cv2.flip(display_frame, 1)  # 1 oznacza odbicie w poziomie (wokół osi Y)
+        # Usuwamy odbicie lustrzane całego obrazu - nie stosujemy go już tutaj
+        # if self.is_mirrored:
+        #     display_frame = cv2.flip(display_frame, 1)  # 1 oznacza odbicie w poziomie (wokół osi Y)
         
         # Używamy resize_with_aspect_ratio zamiast zwykłego resize
         # aby zachować proporcje obrazu
@@ -1364,7 +1363,7 @@ class Camera(QDialog):
 
         if self.recording and self.video_writer:
             self.video_writer.write(frame)
-            
+
     def toggle_preprocessing_view(self):
         """Przełącza widok między oryginalnym obrazem a obrazem po preprocessingu"""
         if not self.frozen or self.preprocessed_frame is None:
@@ -1403,19 +1402,53 @@ class Camera(QDialog):
             self.show_frame(self.frozen_frame)
 
     def clear_image(self):
-        """Resetuje obraz i wznawia działanie kamery"""
+        """Resetuje aplikację do stanu początkowego - czyści wszystkie obrazy, boxy i dane"""
+        # Resetowanie stanu kamery
         self.frozen = False
         self.frozen_frame = None
         self.original_frame = None
-        self.cap_label.clear()  # Czyści obrazek
-        self.bboxes = []  # Czyści bounding boxy
-        self.component_list.clear()  # Czyści listę komponentów
-        self.count_elements.setText("")  # Czyści licznik elementów
+        self.preprocessed_frame = None
+        self.is_preprocessed = False
         
-        # Resetujemy analizę
+        # Czyszczenie wykrytych obiektów
+        self.bboxes = []  
+        self.component_list.clear()  
+        self.count_elements.setText("")
+        
+        # Czyszczenie markerów POS
+        self.pos_putted_on = False
+        if hasattr(self, 'overlayed_frame'):
+            self.overlayed_frame = None
+        if hasattr(self, 'pos_file_path'):
+            self.pos_file_path = None
+            
+        # Resetowanie masek
+        if hasattr(self, 'masks'):
+            self.masks = {}
+            
+        # Czyszczenie wyników detekcji
+        if hasattr(self, 'detection_result'):
+            self.detection_result = None
+            
+        # Czyszczenie konturów PCB
+        self.pcb_contour = None
+        self.pcb_corners = None
+        
+        # Resetowanie UI
+        self.cap_label.clear()
+        
+        # Resetowanie analizy
         if self.analyze:
             self.analyze = False
             self.analyze_button.setText("Analiza")
+            
+        # Dezaktywacja przycisków, które wymagają załadowanego obrazu
+        self.analyze_button.setEnabled(False)
+        self.show_preprocessing_btn.setEnabled(False)
+        self.preprocessing_btn.setEnabled(False)
+        
+        # Informacja dla użytkownika
+        print("Wszystkie dane zostały wyczyszczone, aplikacja zresetowana do stanu początkowego")
 
     def update_component_list(self, detections):
         """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów"""
@@ -1484,15 +1517,20 @@ class Camera(QDialog):
         event.accept()
 
     def toggle_mirror(self):
-        """Przełącza stan odbicia lustrzanego obrazu"""
+        """Przełącza stan odbicia lustrzanego dla znaczników POS"""
         self.is_mirrored = not self.is_mirrored
         
         # Aktualizuj etykietę przycisku
         if self.is_mirrored:
-            self.mirror_button.setText("wyłącz odbicie")
+            self.mirror_button.setText("wyłącz odbicie znaczników")
         else:
-            self.mirror_button.setText("odbicie lustrzane")
+            self.mirror_button.setText("odbicie znaczników")
             
-        # Jeśli mamy zamrożoną klatkę, od razu ją aktualizujemy
-        if self.frozen and self.frozen_frame is not None:
-            self.show_frame(self.frozen_frame)
+        # Jeśli mamy nałożone markery POS, ponownie nałóż je z uwzględnieniem odbicia
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None and hasattr(self, 'pos_file_path'):
+            # Ponowne nałożenie markerów POS z nowym ustawieniem odbicia
+            self.overlay_pos_markers(self.preprocessed_frame, self.pos_file_path, self.cap_label.width(), self.cap_label.height())
+            
+            # Jeśli mamy zamrożoną klatkę, odświeżamy ją
+            if self.frozen and self.frozen_frame is not None:
+                self.show_frame(self.overlayed_frame)
