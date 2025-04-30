@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AOI</class>
+ <widget class="QWidget" name="Raporty">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1100</width>
+    <height>750</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>AOI</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">
+/* --- Styl Pulpitu Statystyk (Ciemny Motyw v5 - Poprawki) --- */
+QWidget#RaportsDashboard {
+    background-color: #2f3136;
+    color: #e8e9ea;
+    font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+}
+
+/* --- Górny Pasek --- */
+QFrame#topToolbar {
+    background-color: #36393f;
+    border: none;
+    border-bottom: 1px solid #282a2e;
+    padding: 8px 20px;
+}
+
+QLabel#titleLabel {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    background-color: transparent;
+}
+
+/* --- Etykieta Daty --- (Dodano) */
+QLabel#dateDisplayLabel {
+    color: #b9bbbe; /* Szary, jak drugorzędny tekst */
+    font-size: 14px; /* Rozmiar jak standardowy tekst */
+    font-weight: 500;
+    background-color: transparent;
+    padding-right: 15px; /* Odstęp od przycisków */
+}
+
+/* --- Przyciski Filtrowania (Wszystkie aktywne wizualnie) --- */
+#topToolbar QPushButton {
+    background-color: #5865F2; /* Kolor akcentu */
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 5px;
+    border: none;
+    min-height: 28px;
+    outline: none;
+}
+#topToolbar QPushButton:hover { background-color: #4e5dcf; }
+#topToolbar QPushButton:pressed { background-color: #404ab8; }
+#topToolbar QPushButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
+
+
+/* --- Tabela --- */
+QTableWidget#tableWidget {
+    background-color: #36393f;
+    border: none;
+    gridline-color: #4f545c;
+    color: #dcddde;
+    font-size: 14px;
+    selection-background-color: #5865F2;
+    selection-color: #ffffff;
+    outline: none;
+}
+/* Zwiększony padding komórek dla większej wysokości wiersza */
+QTableWidget#tableWidget::item {
+    padding: 10px 8px; /* Zwiększono padding pionowy */
+}
+
+
+/* --- Nagłówki Tabeli --- */
+QHeaderView::section {
+    background-color: #2f3136;
+    color: #ffffff;
+    padding: 12px 10px;
+    border: none;
+    border-bottom: 1px solid #4f545c;
+    font-size: 14px;
+    font-weight: 600;
+    /* Wysokość nagłówka jest kontrolowana przez padding */
+}
+QHeaderView::section:horizontal { border-right: 1px solid #4f545c; }
+QHeaderView::section:horizontal:last { border-right: none; }
+
+QHeaderView::section:vertical {
+    background-color: #40444b;
+    border-right: 1px solid #4f545c;
+    border-bottom: 1px solid #4f545c;
+    text-align: right;
+    padding-right: 12px;
+    color: #b9bbbe;
+    font-weight: 500;
+}
+QHeaderView::section:vertical:last { border-bottom: none; }
+
+/* Narożnik tabeli */
+QTableWidget QTableCornerButton::section {
+    background-color: #2f3136;
+    border: none;
+    border-bottom: 1px solid #4f545c;
+    border-right: 1px solid #4f545c;
+}
+
+
+/* --- Dolny Pasek --- */
+QFrame#bottomBar {
+    background-color: #36393f;
+    border: none;
+    border-top: 1px solid #282a2e;
+    padding: 8px 20px;
+    min-height: 45px;
+    max-height: 45px;
+}
+
+/* --- Przycisk Powrotu (Styl jak filtry) --- (Zmieniono) */
+QPushButton#backButton {
+    background-color: #5865F2; /* Kolor akcentu */
+    color: white;
+    font-size: 13px; /* Jak filtry */
+    font-weight: 600;
+    padding: 6px 20px; /* Nieco większy padding dla odróżnienia? Lub taki sam */
+    border-radius: 5px;
+    border: none;
+    min-height: 28px;
+    outline: none;
+}
+QPushButton#backButton:hover { background-color: #4e5dcf; }
+QPushButton#backButton:pressed { background-color: #404ab8; }
+QPushButton#backButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
+
+
+/* Paski przewijania */
+QScrollBar:vertical { border: none; background: #2f3136; width: 12px; margin: 0px; }
+QScrollBar::handle:vertical { background: #4f545c; min-height: 25px; border-radius: 6px; }
+QScrollBar::handle:vertical:hover { background: #5a606b; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; background: none; height: 0px; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+
+QScrollBar:horizontal { border: none; background: #2f3136; height: 12px; margin: 0px; }
+QScrollBar::handle:horizontal { background: #4f545c; min-width: 25px; border-radius: 6px; }
+QScrollBar::handle:horizontal:hover { background: #5a606b; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { border: none; background: none; width: 0px; }
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
+
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainVerticalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item> <widget class="QFrame" name="topToolbar">
+     <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+     <property name="frameShadow"><enum>QFrame::Raised</enum></property>
+     <layout class="QHBoxLayout" name="topToolbarLayout">
+      <property name="spacing"><number>15</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item> <widget class="QLabel" name="titleLabel">
+        <property name="text"><string>Pulpit Statystyk</string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="toolbarSpacer"> <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+       </spacer>
+      </item>
+      <item> <widget class="QLabel" name="dateDisplayLabel">
+        <property name="text">
+         <string>2025-04-29</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item> <layout class="QHBoxLayout" name="buttonGroupLayout">
+        <property name="spacing"><number>10</number></property>
+         <item> <widget class="QPushButton" name="dayButton">
+           <property name="text"><string>Dzień</string></property>
+           <property name="checkable"><bool>false</bool></property>
+           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+          </widget>
+         </item>
+         <item> <widget class="QPushButton" name="weekButton">
+           <property name="text"><string>Tydzień</string></property>
+           <property name="checkable"><bool>false</bool></property>
+           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+          </widget>
+         </item>
+         <item> <widget class="QPushButton" name="monthButton">
+           <property name="text"><string>Miesiąc</string></property>
+           <property name="checkable"><bool>false</bool></property>
+           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+           </widget>
+         </item>
+         <item> <widget class="QPushButton" name="yearButton">
+           <property name="text"><string>Rok</string></property>
+           <property name="checkable"><bool>false</bool></property>
+           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+          </widget>
+         </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item> <widget class="QTableWidget" name="tableWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch> <verstretch>1</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
+     <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
+     <property name="alternatingRowColors"><bool>true</bool></property>
+     <property name="showGrid"><bool>true</bool></property>
+     <property name="gridStyle"><enum>Qt::SolidLine</enum></property>
+     <property name="sortingEnabled"><bool>false</bool></property>
+     <property name="wordWrap"><bool>true</bool></property>
+      <property name="verticalScrollMode">
+       <enum>QAbstractItemView::ScrollPerPixel</enum>
+      </property>
+      <property name="horizontalScrollMode">
+       <enum>QAbstractItemView::ScrollPerPixel</enum>
+      </property>
+      <attribute name="verticalHeaderVisible"><bool>true</bool></attribute>
+      <attribute name="verticalHeaderCascadingSectionResizes">
+          <bool>false</bool>
+      </attribute>
+      <attribute name="verticalHeaderDefaultSectionSize">
+          <number>42</number> </attribute>
+      <attribute name="verticalHeaderHighlightSections"><bool>false</bool></attribute>
+      <attribute name="verticalHeaderMinimumSectionSize">
+          <number>42</number> </attribute>
+      <attribute name="verticalHeaderStretchLastSection">
+          <bool>false</bool>
+      </attribute>
+
+      <attribute name="horizontalHeaderVisible"><bool>true</bool></attribute>
+      <attribute name="horizontalHeaderCascadingSectionResizes">
+          <bool>false</bool>
+      </attribute>
+      <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>150</number> </attribute>
+      <attribute name="horizontalHeaderHighlightSections"><bool>false</bool></attribute>
+      <attribute name="horizontalHeaderMinimumSectionSize">
+          <number>50</number> </attribute>
+      <attribute name="horizontalHeaderStretchLastSection"><bool>true</bool></attribute>
+
+     <row> <property name="text"> <string>Zbadane</string> </property> </row>
+     <row> <property name="text"> <string>Całkowicie dobre</string> </property> </row>
+     <row> <property name="text"> <string>Wadliwe</string> </property> </row>
+     <row> <property name="text"> <string>Brak komponentu</string> </property> </row>
+     <row> <property name="text"> <string>Złe umiejscowienie</string> </property> </row>
+     <row> <property name="text"> <string>Zła orientacja</string> </property> </row>
+     <row> <property name="text"> <string>Zanieczyszczenie</string> </property> </row>
+     <row> <property name="text"> <string>Złe wymiary</string> </property> </row>
+     <column> <property name="text"> <string>Wyniki</string> </property> </column>
+    </widget>
+   </item>
+   <item> <widget class="QFrame" name="bottomBar">
+     <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+     <property name="frameShadow"><enum>QFrame::Raised</enum></property>
+     <layout class="QHBoxLayout" name="bottomBarLayout">
+      <property name="spacing"><number>15</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item> <widget class="QPushButton" name="backButton">
+        <property name="text"><string>Powrót</string></property>
+        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch><verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="bottomSpacer"> <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

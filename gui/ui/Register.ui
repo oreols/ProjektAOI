@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CreateAccountDialog</class>
+ <widget class="QDialog" name="CreateAccountDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>850</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Stwórz Nowe Konto</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">/* --- Styl okna tworzenia konta (Ciemny Motyw v2 - Adaptacja) --- */
+QWidget#CreateAccountDialog {
+    background-color: #2f3136;
+    color: #e8e9ea;
+    font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+}
+
+/* --- Styl centralnego kontenera --- */
+QWidget#contentWidget {
+    background-color: #36393f;
+    border-radius: 8px;
+    padding: 25px;
+}
+
+/* --- Placeholder Avatara (Dodano) --- */
+QLabel#avatarPlaceholder {
+    background-color: #4f545c; /* Ciemniejszy szary */
+    border: 2px solid #5865F2; /* Ramka w kolorze akcentu */
+    border-radius: 50px; /* Połowa szerokości/wysokości (100/2) dla koła */
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 100px;
+    max-height: 100px;
+    qproperty-alignment: 'AlignCenter'; /* Gdybyś chciał dodać inicjały */
+    color: #dcddde;
+    font-size: 40px;
+    font-weight: 600;
+    /* margin-bottom nie działa dobrze w layoutach, użyjemy spacera */
+}
+
+/* --- Ogólny styl etykiet --- */
+QLabel {
+    color: #b9bbbe;
+    background-color: transparent;
+    padding: 0px;
+    margin: 0px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* --- Styl tytułu --- */
+QLabel#titleLabel {
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 600;
+    padding-top: 5px;
+    padding-bottom: 30px;
+}
+
+/* --- Styl pól edycji --- */
+QLineEdit {
+    background-color: #40444b;
+    color: #e8e9ea;
+    border: 1px solid #4f545c;
+    border-radius: 5px;
+    font-size: 14px;
+    padding: 10px 12px;
+    min-height: 30px;
+    selection-background-color: #5865F2;
+    selection-color: #ffffff;
+}
+QLineEdit:focus {
+    border: 1px solid #5865F2;
+    background-color: #444950;
+}
+QLineEdit::placeholder-text {
+  color: #72767d;
+}
+
+/* --- Styl ComboBox --- */
+QComboBox {
+    background-color: #40444b;
+    color: #e8e9ea;
+    border: 1px solid #4f545c;
+    border-radius: 5px;
+    padding: 10px 12px;
+    min-height: 30px;
+    font-size: 14px;
+}
+QComboBox:focus {
+    border: 1px solid #5865F2;
+    background-color: #444950;
+}
+QComboBox QAbstractItemView {
+    background-color: #40444b;
+    color: #e8e9ea;
+    border: 1px solid #5865F2;
+    selection-background-color: #5865F2;
+    selection-color: #ffffff;
+    padding: 5px;
+    outline: none;
+}
+QComboBox::drop-down {
+    border: none;
+    background-color: transparent;
+    width: 20px;
+}
+
+/* --- Styl CheckBox --- */
+QCheckBox {
+    color: #b9bbbe;
+    background-color: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    spacing: 8px;
+}
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 1px solid #4f545c;
+    border-radius: 4px;
+    background-color: #40444b;
+}
+QCheckBox::indicator:hover {
+    border: 1px solid #5865F2;
+}
+QCheckBox::indicator:checked {
+    background-color: #5865F2;
+    border: 1px solid #5865F2;
+}
+QCheckBox::indicator:disabled {
+    background-color: #3a3d42;
+    border: 1px solid #2a2c30;
+}
+
+/* --- Styl przycisku GŁÓWNEGO (dodawania) --- */
+QPushButton#addAccountButton {
+    background-color: #5865F2; /* Kolor akcentu */
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 28px;
+    border-radius: 5px;
+    border: none;
+    min-height: 34px;
+    outline: none;
+    margin-top: 20px; /* Odstęp od góry (w layoucie przycisków) */
+}
+QPushButton#addAccountButton:hover {
+    background-color: #4e5dcf;
+}
+QPushButton#addAccountButton:pressed {
+    background-color: #404ab8;
+}
+QPushButton#addAccountButton:disabled {
+    background-color: #40444b;
+    color: #72767d;
+    opacity: 0.7;
+}
+
+/* --- Styl przycisku POWROTU (Dodano) --- */
+QPushButton#backButton {
+    background-color: transparent; /* Przezroczyste tło */
+    color: #b9bbbe; /* Kolor tekstu jak zwykłe etykiety */
+    border: 1px solid #4f545c; /* Szara ramka (jak QLineEdit) */
+    font-size: 14px; /* Taki sam rozmiar czcionki */
+    font-weight: 600; /* Taka sama grubość czcionki */
+    padding: 10px 20px; /* Mniejszy padding poziomy dla mniejszego wyglądu */
+    border-radius: 5px; /* Taki sam radius */
+    min-height: 34px; /* Taka sama wysokość */
+    outline: none;
+    margin-top: 20px; /* Taki sam odstęp */
+}
+QPushButton#backButton:hover {
+    background-color: #40444b; /* Lekkie tło przy najechaniu */
+    color: #ffffff; /* Jaśniejszy tekst */
+    border-color: #5865F2; /* Ramka w kolorze akcentu */
+}
+QPushButton#backButton:pressed {
+    background-color: #444950; /* Ciemniejsze tło przy wciśnięciu */
+    color: #e8e9ea;
+    border-color: #4e5dcf; /* Ciemniejsza ramka akcentu */
+}
+QPushButton#backButton:disabled {
+    background-color: transparent;
+    color: #72767d;
+    border-color: #40444b;
+    opacity: 0.7;
+}
+
+
+/* --- Styl etykiety błędu/statusu --- */
+QLabel#error_msg {
+    color: #f04747;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 22px;
+    padding: 5px 0;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainVerticalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>10</number>
+   </property>
+   <property name="topMargin">
+    <number>10</number>
+   </property>
+   <property name="rightMargin">
+    <number>10</number>
+   </property>
+   <property name="bottomMargin">
+    <number>10</number>
+   </property>
+   <item>
+    <spacer name="verticalSpacer_Top">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Expanding</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>30</height> </size>
+     </property>
+    </spacer>
+   </item>
+
+   <item alignment="Qt::AlignHCenter">
+     <widget class="QLabel" name="avatarPlaceholder">
+       <property name="minimumSize">
+        <size>
+         <width>100</width>
+         <height>100</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>100</width>
+         <height>100</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/> </property>
+     </widget>
+   </item>
+
+   <item>
+     <spacer name="spacer_Avatar_Content">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeType">
+       <enum>QSizePolicy::Fixed</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>20</height> </size>
+      </property>
+     </spacer>
+    </item>
+
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QWidget" name="contentWidget" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>750</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>900</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <layout class="QVBoxLayout" name="contentVerticalLayout">
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <property name="leftMargin">
+       <number>35</number>
+      </property>
+      <property name="topMargin">
+       <number>30</number>
+      </property>
+      <property name="rightMargin">
+       <number>35</number>
+      </property>
+      <property name="bottomMargin">
+       <number>30</number>
+      </property>
+      <item alignment="Qt::AlignHCenter|Qt::AlignTop">
+       <widget class="QLabel" name="titleLabel">
+        <property name="text">
+         <string>Stwórz nowe konto</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="formGridLayout">
+        <property name="horizontalSpacing">
+         <number>15</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>15</number>
+        </property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="nameLabel">
+          <property name="text">
+           <string>Imię:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="name">
+          <property name="placeholderText">
+           <string>Wprowadź imię</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="surnameLabel">
+          <property name="text">
+           <string>Nazwisko:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="surname">
+          <property name="placeholderText">
+           <string>Wprowadź nazwisko</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="emailLabel">
+          <property name="text">
+           <string>Email:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="email">
+          <property name="placeholderText">
+           <string>Wprowadź adres email</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="passwordLabel">
+          <property name="text">
+           <string>Hasło:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QLineEdit" name="password">
+          <property name="echoMode">
+           <enum>QLineEdit::Password</enum>
+          </property>
+          <property name="placeholderText">
+           <string>Wprowadź hasło</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="confirmPasswordLabel">
+          <property name="text">
+           <string>Powtórz hasło:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QLineEdit" name="confirm_password">
+          <property name="echoMode">
+           <enum>QLineEdit::Password</enum>
+          </property>
+          <property name="placeholderText">
+           <string>Potwierdź hasło</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLabel" name="positionLabel">
+          <property name="text">
+           <string>Stanowisko:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QComboBox" name="position">
+          <property name="placeholderText" stdset="0">
+           <string>Wybierz stanowisko</string>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch> <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QLabel" name="isAdminLabel">
+          <property name="text">
+           <string>Admin:</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="3">
+         <layout class="QHBoxLayout" name="horizontalLayout_Checkbox">
+          <property name="spacing">
+           <number>0</number>
+          </property>
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <item alignment="Qt::AlignLeft">
+           <widget class="QCheckBox" name="permisions">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="cursor">
+             <cursorShape>PointingHandCursor</cursorShape>
+            </property>
+            <property name="toolTip">
+             <string>Zaznacz, jeśli użytkownik ma mieć uprawnienia administratora</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_Checkbox">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item row="4" column="0" colspan="4">
+         <spacer name="formSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>10</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="error_msg">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+
+      <item> <layout class="QHBoxLayout" name="buttonsHorizontalLayout"> <property name="spacing">
+           <number>15</number> </property>
+          <item>
+           <spacer name="buttonsSpacerLeft"> <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+              <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item> <widget class="QPushButton" name="backButton">
+             <property name="text">
+              <string>Powrót</string>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="sizePolicy"> <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+          </item>
+          <item> <widget class="QPushButton" name="addAccountButton">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Stwórz Konto</string>
+            </property>
+            <property name="cursor">
+             <cursorShape>PointingHandCursor</cursorShape>
+            </property>
+            <property name="sizePolicy"> <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize"> <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="default">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="buttonsSpacerRight"> <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+              <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+        </layout>
+      </item>
+
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer_Bottom">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Expanding</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>30</height> </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>name</tabstop>
+  <tabstop>surname</tabstop>
+  <tabstop>email</tabstop>
+  <tabstop>password</tabstop>
+  <tabstop>confirm_password</tabstop>
+  <tabstop>position</tabstop>
+  <tabstop>permisions</tabstop>
+  <tabstop>backButton</tabstop> <tabstop>addAccountButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

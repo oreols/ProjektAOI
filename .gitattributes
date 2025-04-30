@@ -1,0 +1,23 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Python files always have LF line endings
+*.py text eol=lf
+
+# UI files always have CRLF line endings
+*.ui text eol=crlf
+
+# CSV files always have CRLF line endings
+*.csv text eol=crlf
+
+# Binary files should not be modified
+*.pth binary
+*.jpg binary
+*.png binary
+*.svg binary
+
+# Markdown files
+*.md text eol=crlf
+
+# Jeżeli masz inne typy plików (np. .sh, .yml), też możesz je wymusić:
+*.sh text eol=lf
