@@ -1,0 +1,7 @@
+# Pliki systemowe
+.DS_Store
+*/.DS_Store
+
+# Pliki cache 
+__pycache__/
+*.pyc

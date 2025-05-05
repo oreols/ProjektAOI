@@ -16,33 +16,31 @@ class MainWindow(QMainWindow):
         self.user_id = user_id
         self.widget = widget
 
-        # Dodanie widżetów do stackedWidget
-        self.stackedWidget.addWidget(Reports())  # Index 0
-        self.stackedWidget.addWidget(Camera())  # Index 1
-        self.stackedWidget.addWidget(History())  # Index 2
-        self.stackedWidget.addWidget(Account())  # Index 3
-        self.stackedWidget.addWidget(AccountSettings(self.user_id))  # Index 4
-        if self.role == "admin":
-            self.stackedWidget.addWidget(Register())  # Index 5 (tylko dla admina)
+        # Dodanie widżetów do stackedWidget z zapisaniem ich indeksów
+        self.index_reports = self.stackedWidget.addWidget(Reports())
+        self.index_camera = self.stackedWidget.addWidget(Camera())
+        self.index_history = self.stackedWidget.addWidget(History())
+        self.index_account = self.stackedWidget.addWidget(Account())
+        self.index_account_settings = self.stackedWidget.addWidget(AccountSettings(self.user_id))
 
-        # Połączenia akcji z widżetami
-        self.actionReports.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(2))
-        self.actionCameras.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(3))
-        self.actionHistory.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(4))
-        self.actionAccount.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(5))
-        self.actionRegister.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(7))
-        self.actionAccountSettings.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(6))
-
-        # Admin widzi więcej opcji
+        self.index_register = None
         if self.role == "admin":
-            self.actionRegister.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(7))
-            self.actionAccount.setVisible(True)
-            self.actionRegister.setVisible(True)
-            self.actionAccountSettings.setVisible(True)
-        elif self.role == "user":
-            self.actionAccount.setVisible(False)
-            self.actionRegister.setVisible(False)
-            self.actionAccountSettings.setVisible(True)
+            self.index_register = self.stackedWidget.addWidget(Register())
+
+        # Połączenia akcji z widżetami (odpowiednie indeksy)
+        self.actionReports.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_reports))
+        self.actionCameras.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_camera))
+        self.actionHistory.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_history))
+        self.actionAccount.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_account))
+        self.actionAccountSettings.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_account_settings))
+
+        if self.role == "admin" and self.index_register is not None:
+            self.actionRegister.triggered.connect(lambda: self.stackedWidget.setCurrentIndex(self.index_register))
+
+        # Widoczność akcji w zależności od roli
+        self.actionAccount.setVisible(self.role == "admin")
+        self.actionRegister.setVisible(self.role == "admin")
+        self.actionAccountSettings.setVisible(True)
 
         # Akcja wylogowania
         self.actionLogout.triggered.connect(self.logout)

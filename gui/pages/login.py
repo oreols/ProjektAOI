@@ -34,4 +34,3 @@ class Login(QDialog):
         self.widget.addWidget(mainWindow)
         self.widget.setCurrentWidget(mainWindow)
 
-

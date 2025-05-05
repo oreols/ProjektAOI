@@ -6,253 +6,664 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1400</width>
-    <height>900</height>
+    <width>1200</width>
+    <height>800</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Vision Analyzer</string>
   </property>
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>-30</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
+  <property name="styleSheet">
+   <string notr="true">
+
+QWidget#Form {
+    background-color: #2f3136; /* Zmieniono z #171717 */
+    color: #ffffff; /* Zmieniono z #e8e9ea dla lepszego kontrastu */
+    font-family: "Segoe UI", "SF Pro Display", "Roboto", sans-serif;
+    font-size: 12px;
+}
+
+/* --- Kontenery (Ramki) --- */
+.QFrame {
+    background-color: #36393f; /* Zmieniono z #202020 */
+    border: none; /* Można dodać border: 1px solid #202225; dla subtelnego oddzielenia */
+    border-radius: 5px; /* Zmieniono z 4px dla spójności */
+}
+
+/* --- Etykiety --- */
+QLabel {
+    color: #b9bbbe; /* Zmieniono z #a0a0a0 */
+    background-color: transparent;
+    font-weight: 400;
+}
+
+QLabel#label_3, QLabel#label_4 {
+    color: #ffffff; /* Pozostawiono biały dla ważniejszych etykiet */
+    font-size: 11px;
+    font-weight: 500;
+}
+
+QLabel#count_elements {
+    color: #4b7bec; /* Kolor akcentu */
+    font-weight: 600;
+    font-size: 14px;
+}
+
+QLabel#cap {
+    background-color: #36393f; /* Zmieniono z #202020 */
+    border: none;
+    border-radius: 5px; /* Zmieniono z 4px */
+    color: #b9bbbe; /* Zmieniono z #a0a0a0 */
+}
+
+/* --- Przyciski --- */
+QPushButton {
+    background-color: #40444b; /* Zmieniono z #272727 */
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 8px 12px; /* Zwiększono padding pionowy */
+    border-radius: 5px; /* Zmieniono z 3px */
+    border: none; /* Można dodać border: 1px solid #202225; */
+    min-height: 28px; /* Dostosowano min-height */
+    min-width: 70px;
+    outline: none;
+}
+
+QPushButton:hover {
+    background-color: #444950; /* Zmieniono z #303030 */
+}
+
+QPushButton:pressed {
+    background-color: #3b3e44; /* Zmieniono z #242424 */
+}
+
+QPushButton:disabled {
+    background-color: #36393f; /* Dopasowano do tła elementów */
+    color: #72767d; /* Kolor tekstu nieaktywnego */
+    /* opacity: 0.6; Można dodać dla efektu */
+}
+
+/* --- Przyciski akcji --- */
+QPushButton#analyze_button {
+    background-color: #4b7bec; /* Niebieski */
+    color: white;
+    font-weight: 500;
+}
+QPushButton#analyze_button:hover {
+    background-color: #5a89f5; /* Jaśniejszy niebieski */
+}
+QPushButton#analyze_button:pressed {
+    background-color: #3a6ad8; /* Ciemniejszy niebieski */
+}
+
+QPushButton#stop_button {
+    background-color: #fc5c65; /* Czerwony */
+    color: white;
+}
+QPushButton#stop_button:hover {
+    background-color: #fd7f86; /* Jaśniejszy czerwony */
+}
+QPushButton#stop_button:pressed {
+    background-color: #e14a53; /* Ciemniejszy czerwony */
+}
+
+QPushButton#start_button {
+    background-color: #26de81; /* Zielony */
+    color: white;
+}
+QPushButton#start_button:hover {
+    background-color: #33e68c; /* Jaśniejszy zielony */
+}
+QPushButton#start_button:pressed {
+    background-color: #20c975; /* Ciemniejszy zielony */
+}
+
+/* --- Przyciski przełączalne --- */
+QPushButton:checkable {
+    background-color: #40444b; /* Ten sam co zwykły przycisk */
+}
+QPushButton:checkable:hover {
+     background-color: #444950;
+}
+
+/* Stan :checked dla przycisków przełączalnych (domyślnie niebieski) */
+QPushButton:checkable:checked {
+    background-color: #4b7bec; /* Główny akcent */
+    color: white;
+}
+QPushButton:checkable:checked:hover {
+    background-color: #5a89f5;
+}
+QPushButton:checkable:checked:pressed {
+    background-color: #3a6ad8;
+}
+
+/* Wyjątek dla przycisku REC w stanie :checked (czerwony jak Stop) */
+QPushButton#record_button:checked {
+    background-color: #fc5c65; /* Czerwony jak Stop */
+}
+QPushButton#record_button:checked:hover {
+    background-color: #fd7f86; /* Jaśniejszy czerwony */
+}
+QPushButton#record_button:checked:pressed {
+    background-color: #e14a53; /* Ciemniejszy czerwony */
+}
+
+
+/* --- ComboBox --- */
+QComboBox {
+    background-color: #40444b; /* Zmieniono z #272727 */
+    color: #ffffff;
+    border: none; /* Można dodać border: 1px solid #202225; */
+    border-radius: 5px; /* Zmieniono z 3px */
+    padding: 8px 12px; /* Zwiększono padding pionowy, dopasowano do przycisku */
+    font-size: 11px;
+    min-height: 28px; /* Dostosowano min-height */
+    selection-background-color: #4b7bec; /* Zachowano kolor akcentu */
+    selection-color: #ffffff;
+}
+
+QComboBox:hover {
+    background-color: #444950; /* Zmieniono z #303030 */
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 18px; /* Lekko zwiększono dla lepszego kliku */
+    border-left-width: 0px;
+    border-top-right-radius: 5px; /* Dopasowano border-radius */
+    border-bottom-right-radius: 5px;
+    background: transparent;
+}
+
+QComboBox::down-arrow {
+    /* Można użyć ikony SVG lub PNG dla lepszego wyglądu */
+    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-down-16.png);
+    filter: invert(100%) brightness(200%); /* Inwersja, aby strzałka była biała */
+    width: 10px;
+    height: 10px;
+    margin-right: 2px; /* Mały margines od prawej krawędzi */
+}
+
+/* Lista rozwijana ComboBox */
+QComboBox QAbstractItemView {
+    background-color: #36393f; /* Zmieniono z #202020 */
+    border: 1px solid #202225; /* Dodano subtelne obramowanie */
+    border-radius: 5px; /* Dopasowano border-radius */
+    color: #ffffff;
+    selection-background-color: #4b7bec;
+    selection-color: white;
+    padding: 4px;
+    outline: 0px;
+}
+
+/* --- ListWidget --- */
+QListWidget#component_list {
+    background-color: #36393f; /* Zmieniono z #202020 */
+    border: none; /* Można dodać border: 1px solid #202225; */
+    border-radius: 5px; /* Zmieniono z 3px */
+    color: #ffffff;
+    font-size: 11px;
+    outline: none;
+    padding: 4px; /* Lekko zwiększono padding */
+}
+
+QListWidget#component_list::item {
+    padding: 6px 8px;
+    border-radius: 3px; /* Zaokrąglenie elementów listy */
+    margin: 2px 3px; /* Lekko zwiększono margines */
+}
+
+QListWidget#component_list::item:selected {
+    background-color: #4b7bec; /* Kolor akcentu */
+    color: white;
+}
+
+QListWidget#component_list::item:hover:!selected {
+    background-color: #444950; /* Kolor tła przy najechaniu */
+}
+
+/* --- Paski przewijania (Styl dostosowany do nowej palety) --- */
+QScrollBar:vertical {
+    border: none;
+    background: transparent; /* Tło paska */
+    width: 8px; /* Lekko szerszy dla łatwiejszego chwytania */
+    margin: 6px 0px 6px 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #40444b; /* Kolor uchwytu */
+    min-height: 25px;
+    border-radius: 4px; /* Zaokrąglenie uchwytu */
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #444950; /* Jaśniejszy uchwyt przy najechaniu */
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px; /* Ukrycie strzałek */
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none; /* Brak tła dla obszaru strony */
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: transparent;
+    height: 8px; /* Ta sama grubość co pionowy */
+    margin: 0px 6px 0px 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #40444b;
+    min-width: 25px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #444950;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
+}
+
+/* --- Tooltip --- */
+QToolTip {
+    background-color: #36393f; /* Dopasowano tło */
+    color: #ffffff;
+    border: 1px solid #202225; /* Subtelne obramowanie */
+    border-radius: 5px; /* Dopasowano zaokrąglenie */
+    padding: 5px 8px; /* Zwiększono padding */
+    font-size: 11px;
+}
+   </string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>10</number>
    </property>
-   <property name="styleSheet">
-    <string notr="true">background-color: rgb(210, 208, 208);</string>
+   <property name="leftMargin">
+    <number>12</number>
    </property>
-   <widget class="QPushButton" name="analyze_button">
-    <property name="geometry">
-     <rect>
-      <x>230</x>
-      <y>730</y>
-      <width>211</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>rozpocznij analizę</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="start_button">
-    <property name="geometry">
-     <rect>
-      <x>550</x>
-      <y>730</y>
-      <width>91</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>kamera</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="cap">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>10</y>
-      <width>1280</width>
-      <height>720</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">background-color: rgb(183, 202, 255);</string>
-    </property>
-    <property name="text">
-     <string>Kamera</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="virtual_cam_button">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>730</y>
-      <width>201</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Włącz wirtualną kamerę</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="stop_button">
-    <property name="geometry">
-     <rect>
-      <x>450</x>
-      <y>730</y>
-      <width>91</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>stop obraz</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="record_button">
-    <property name="geometry">
-     <rect>
-      <x>650</x>
-      <y>730</y>
-      <width>111</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>nagraj ekran</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="preprocessing_btn">
-    <property name="geometry">
-     <rect>
-      <x>560</x>
-      <y>790</y>
-      <width>201</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Preprocessing</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="show_preprocessing_btn">
-    <property name="geometry">
-     <rect>
-      <x>560</x>
-      <y>820</y>
-      <width>201</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Pokaż preprocessing</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="pos_file">
-    <property name="geometry">
-     <rect>
-      <x>330</x>
-      <y>820</y>
-      <width>201</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Nałóż plik POS</string>
-    </property>
-   </widget>
-   <widget class="QComboBox" name="component">
-    <property name="geometry">
-     <rect>
-      <x>210</x>
-      <y>780</y>
-      <width>321</width>
-      <height>41</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_3">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>780</y>
-      <width>181</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
-    </property>
-    <property name="text">
-     <string>Wybierz komponent</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_4">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>840</y>
-      <width>201</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>liczba wykrytych elementów: </string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="count_elements">
-    <property name="geometry">
-     <rect>
-      <x>220</x>
-      <y>840</y>
-      <width>55</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string/>
-    </property>
-   </widget>
-   <widget class="QListWidget" name="component_list">
-    <property name="geometry">
-     <rect>
-      <x>800</x>
-      <y>740</y>
-      <width>256</width>
-      <height>121</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">background-color: rgb(255, 170, 127);</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="clear_image_button">
-    <property name="geometry">
-     <rect>
-      <x>650</x>
-      <y>760</y>
-      <width>111</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>wyczyść</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="mirror_button">
-    <property name="geometry">
-     <rect>
-      <x>560</x>
-      <y>850</y>
-      <width>201</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>odbicie lustrzane</string>
-    </property>
-   </widget>
-   <zorder>cap</zorder>
-   <zorder>analyze_button</zorder>
-   <zorder>start_button</zorder>
-   <zorder>virtual_cam_button</zorder>
-   <zorder>stop_button</zorder>
-   <zorder>record_button</zorder>
-   <zorder>preprocessing_btn</zorder>
-   <zorder>show_preprocessing_btn</zorder>
-   <zorder>pos_file</zorder>
-   <zorder>component</zorder>
-   <zorder>label_3</zorder>
-   <zorder>label_4</zorder>
-   <zorder>count_elements</zorder>
-   <zorder>component_list</zorder>
-   <zorder>clear_image_button</zorder>
-   <zorder>mirror_button</zorder>
-  </widget>
+   <property name="topMargin">
+    <number>12</number>
+   </property>
+   <property name="rightMargin">
+    <number>12</number>
+   </property>
+   <property name="bottomMargin">
+    <number>12</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <property name="spacing">
+      <number>10</number>
+     </property>
+     <item>
+      <layout class="QVBoxLayout" name="leftPanelLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="cap">
+         <property name="text">
+          <string/>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>640</width>
+           <height>480</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="controlsFrame">
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Raised</enum>
+         </property>
+         <layout class="QHBoxLayout" name="controlsLayout">
+          <property name="spacing">
+           <number>10</number>
+          </property>
+          <property name="leftMargin">
+           <number>10</number>
+          </property>
+          <property name="topMargin">
+           <number>10</number>
+          </property>
+          <property name="rightMargin">
+           <number>10</number>
+          </property>
+          <property name="bottomMargin">
+           <number>10</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="cameraButtonsLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="start_button">
+              <property name="text">
+               <string>Start</string>
+              </property>
+              <property name="toolTip">
+               <string>Rozpocznij przechwytywanie z kamery</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="stop_button">
+              <property name="text">
+               <string>Stop</string>
+              </property>
+              <property name="toolTip">
+               <string>Zatrzymaj przechwytywanie obrazu</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="record_button">
+              <property name="text">
+               <string>REC</string>
+              </property>
+              <property name="toolTip">
+               <string>Rozpocznij/zatrzymaj nagrywanie</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="clear_image_button">
+              <property name="text">
+               <string>Wyczyść</string>
+              </property>
+              <property name="toolTip">
+               <string>Wyczyść znaczniki z obrazu</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="optionsLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="virtual_cam_button">
+              <property name="text">
+               <string>V-Cam</string>
+              </property>
+              <property name="toolTip">
+               <string>Włącz lub wyłącz wirtualną kamerę</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="mirror_button">
+              <property name="text">
+               <string>Lustro</string>
+              </property>
+              <property name="toolTip">
+               <string>Włącz/wyłącz odbicie lustrzane obrazu</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pos_file">
+              <property name="text">
+               <string>POS</string>
+              </property>
+              <property name="toolTip">
+               <string>Wybierz i nałóż plik z pozycjami (POS)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QFrame" name="rightPanel">
+       <property name="minimumSize">
+        <size>
+         <width>280</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>280</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
+       </property>
+       <layout class="QVBoxLayout" name="rightPanelLayout">
+        <property name="spacing">
+         <number>10</number>
+        </property>
+        <property name="leftMargin">
+         <number>10</number>
+        </property>
+        <property name="topMargin">
+         <number>10</number>
+        </property>
+        <property name="rightMargin">
+         <number>10</number>
+        </property>
+        <property name="bottomMargin">
+         <number>10</number>
+        </property>
+        <item>
+         <layout class="QVBoxLayout" name="analysisLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="analysisSetupLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>Komponent:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="component">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                <horstretch>1</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="toolTip">
+               <string>Wybierz komponent do analizy</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="analyze_button">
+              <property name="text">
+               <string>Analizuj</string>
+              </property>
+              <property name="toolTip">
+               <string>Uruchom proces analizy obrazu</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="preprocessingLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="preprocessing_btn">
+              <property name="text">
+               <string>Preprocess</string>
+              </property>
+              <property name="toolTip">
+               <string>Zastosuj kroki preprocessingu</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="show_preprocessing_btn">
+              <property name="text">
+               <string>Pokaż</string>
+              </property>
+              <property name="toolTip">
+               <string>Pokaż lub ukryj wynik preprocessingu</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="countLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>Wykrytych:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="count_elements">
+              <property name="text">
+               <string>0</string>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>35</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="resultsLabel">
+          <property name="text">
+           <string>Wyniki analizy</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+          <property name="margin">
+           <number>2</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QListWidget" name="component_list">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>1</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>260</width>
+            <height>100</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>Lista wykrytych komponentów lub innych informacji</string>
+          </property>
+          <property name="horizontalScrollBarPolicy">
+           <enum>Qt::ScrollBarAlwaysOff</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>
