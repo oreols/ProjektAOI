@@ -13,20 +13,9 @@
   <property name="windowTitle">
    <string>Twoja Aplikacja</string> </property>
   <widget class="QWidget" name="centralwidget">
-<<<<<<< HEAD:ui/Menu.ui
    <layout class="QVBoxLayout" name="verticalLayout">
     <property name="leftMargin">
      <number>0</number>
-=======
-   <widget class="QStackedWidget" name="stackedWidget">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>1400</width>
-      <height>900</height>
-     </rect>
->>>>>>> main:gui/ui/Menu.ui
     </property>
     <property name="topMargin">
      <number>0</number>

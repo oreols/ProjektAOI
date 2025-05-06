@@ -6,19 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-<<<<<<< HEAD:ui/AccountSettings.ui
     <width>1000</width>
     <height>850</height> </rect>
-=======
-    <width>1400</width>
-    <height>900</height>
-   </rect>
->>>>>>> main:gui/ui/AccountSettings.ui
   </property>
   <property name="windowTitle">
    <string>Moje Konto</string>
   </property>
-<<<<<<< HEAD:ui/AccountSettings.ui
   <property name="styleSheet">
    <string notr="true">
 /* --- Styl widżetu ustawień konta --- */
@@ -28,116 +21,6 @@ QWidget#AccountSettingsWidget {
     font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif;
     font-size: 14px;
 }
-=======
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">QWidget#widget{
-background-color: rgb(106, 106, 106);
-font: 63 12pt &quot;Segoe UI Semibold&quot;;
-color:white;}</string>
-   </property>
-   <widget class="QLineEdit" name="new_email">
-    <property name="geometry">
-     <rect>
-      <x>200</x>
-      <y>300</y>
-      <width>341</width>
-      <height>61</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 63 16pt &quot;Segoe UI Semibold&quot;;</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_3">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>390</y>
-      <width>171</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">color:white;
-font: 63 18pt &quot;Segoe UI Semibold&quot;;</string>
-    </property>
-    <property name="text">
-     <string>Aktualne hasło</string>
-    </property>
-   </widget>
-   <widget class="QLineEdit" name="password">
-    <property name="geometry">
-     <rect>
-      <x>200</x>
-      <y>380</y>
-      <width>341</width>
-      <height>61</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 63 16pt &quot;Segoe UI Semibold&quot;;</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="saveChanges">
-    <property name="enabled">
-     <bool>true</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>460</x>
-      <y>700</y>
-      <width>281</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 63 18pt &quot;Segoe UI Semibold&quot;;
-border-radius:20px;
-background-color: rgb(146, 145, 145);
-color:white;</string>
-    </property>
-    <property name="text">
-     <string>Zapisz zmiany</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_4">
-    <property name="geometry">
-     <rect>
-      <x>40</x>
-      <y>310</y>
-      <width>131</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">color:white;
-font: 63 18pt &quot;Segoe UI Semibold&quot;;</string>
-    </property>
-    <property name="text">
-     <string>Nowy email</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>490</x>
-      <y>70</y>
-      <width>411</width>
-      <height>81</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">background-color: rgb(106, 106, 106);
->>>>>>> main:gui/ui/AccountSettings.ui
 
 /* --- Styl centralnego kontenera --- */
 QWidget#contentWidget {

@@ -6,19 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-<<<<<<< HEAD:ui/History.ui
     <width>800</width>
     <height>600</height>
-=======
-    <width>1400</width>
-    <height>900</height>
->>>>>>> main:gui/ui/History.ui
    </rect>
   </property>
   <property name="windowTitle">
    <string>Historia PCB</string>
   </property>
-<<<<<<< HEAD:ui/History.ui
   <property name="styleSheet">
    <string notr="true">
 QDialog#History {
@@ -134,16 +128,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
     <number>10</number> </property>
    <property name="leftMargin">
     <number>10</number>
-=======
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
->>>>>>> main:gui/ui/History.ui
    </property>
    <property name="topMargin">
     <number>10</number>

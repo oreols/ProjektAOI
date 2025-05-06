@@ -6,19 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-<<<<<<< HEAD:ui/Report.ui
     <width>1100</width>
     <height>750</height>
-=======
-    <width>1400</width>
-    <height>900</height>
->>>>>>> main:gui/ui/Report.ui
    </rect>
   </property>
   <property name="windowTitle">
    <string>AOI</string>
   </property>
-<<<<<<< HEAD:ui/Report.ui
   <property name="styleSheet">
    <string notr="true">
 
@@ -166,16 +160,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
   <layout class="QVBoxLayout" name="mainVerticalLayout">
    <property name="spacing">
     <number>0</number>
-=======
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
->>>>>>> main:gui/ui/Report.ui
    </property>
    <property name="leftMargin">
     <number>0</number>
