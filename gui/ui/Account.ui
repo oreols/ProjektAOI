@@ -6,22 +6,16 @@
    <rect>
     <x>0</x>
     <y>0</y>
-<<<<<<< HEAD:ui/Account.ui
     <width>1100</width>
     <height>750</height>
-=======
-    <width>1400</width>
-    <height>900</height>
->>>>>>> main:gui/ui/Account.ui
    </rect>
   </property>
   <property name="windowTitle">
    <string>Zarządzanie Użytkownikami</string>
   </property>
-<<<<<<< HEAD:ui/Account.ui
   <property name="styleSheet">
    <string notr="true">
-/* --- Styl Zarządzania Użytkownikami --- */
+/* --- Styl Zarządzania Użytkownikami v14 (Styl Logowania, Poprawki) --- */
 QDialog#AccountDialog {
     background-color: #2f3136; /* Główne tło */
     color: #e8e9ea;
@@ -52,7 +46,7 @@ QLabel#titleLabel {
     background-color: transparent;
 }
 
-/* --- Tabela --- */
+/* --- Tabela (jako główny zaokrąglony element) --- */
 QTableWidget#tableWidget {
     background-color: #36393f; /* Tło jak paski */
     border: 1px solid #202225; /* Subtelna ramka */
@@ -103,7 +97,8 @@ QTableWidget QTableCornerButton::section {
 }
 
 
-/* --- Przyciski --- */
+/* --- Przyciski (Wszystkie) --- */
+/* Styl jak w logowaniu */
 QPushButton {
     background-color: #5865F2;
     color: white;
@@ -140,16 +135,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
     <number>15</number> </property>
    <property name="topMargin">
     <number>15</number>
-=======
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
->>>>>>> main:gui/ui/Account.ui
    </property>
    <property name="rightMargin">
     <number>15</number>

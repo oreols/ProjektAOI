@@ -6,20 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-<<<<<<< HEAD:ui/Login.ui
     <width>460</width>
     <height>450</height>
-=======
-    <width>1400</width>
-    <height>900</height>
->>>>>>> main:gui/ui/Login.ui
    </rect>
   </property>
   <property name="windowTitle">
    <string>Logowanie</string>
   </property>
   <property name="styleSheet">
-<<<<<<< HEAD:ui/Login.ui
    <string notr="true">
 /* --- Ogólny styl okna logowania --- */
 QDialog#Dialog {
@@ -28,37 +22,6 @@ QDialog#Dialog {
     font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif;
     font-size: 14px;
 }
-=======
-   <string notr="true"/>
-  </property>
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1400</width>
-     <height>900</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">QWidget#widget{
-background-color: rgb(106, 106, 106);
-font: 63 12pt &quot;Segoe UI Semibold&quot;;
-color:white;}
-</string>
-   </property>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>520</x>
-      <y>60</y>
-      <width>231</width>
-      <height>81</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">background-color: rgb(106, 106, 106);
->>>>>>> main:gui/ui/Login.ui
 
 QWidget#contentWidget {
     background-color: #36393f;
