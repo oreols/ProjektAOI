@@ -2,7 +2,7 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 import cv2
 import os
-from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton
+from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton, QInputDialog, QApplication
 import torchvision
 import torch
 from PyQt5.QtCore import QTimer
@@ -13,6 +13,9 @@ import sys
 import matplotlib.pyplot as plt
 from io import BytesIO
 import csv
+import mysql.connector
+from datetime import datetime
+from db_config import DB_CONFIG
 
 class Camera(QDialog):
     def __init__(self):
@@ -23,7 +26,13 @@ class Camera(QDialog):
         self.cap_label = self.findChild(QLabel, "cap")
         self.bboxes = []  # Inicjalizacja listy wykrytych obiektów
         self.component_list.itemClicked.connect(self.highlight_bbox)
-
+        
+        # Podłączenie przycisku zapisu
+        self.save_button.clicked.connect(self.save_pcb_data)
+        
+        # Inicjalizacja bazy danych
+        self.init_database()
+        
         self.frozen = False  # Dodaj tę linię
         self.frozen_frame = None  # Przechowa zamrożoną klatkę
         self.original_frame = None  # Przechowa oryginalną kopię obrazu bez boxów
@@ -32,16 +41,16 @@ class Camera(QDialog):
         self.pcb_contour = None  # Przechowuje kontur płytki PCB
         self.pcb_corners = None  # Przechowuje rogi płytki PCB
         self.pos_putted_on = False  # Flaga czy pozycje zostały nałożone na obraz
-
+        
         self.model_paths = {
-            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/capacitors_model_epoch_19_mAP_0.815.pth")),
-            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/ic_model_epoch_18_mAP_0.875.pth")),
+            "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/capacitors.pth")),
+            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/ic.pth")),
             "Dioda": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/dioda_model_epoch_14_mAP_0.822.pth")),
-            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/usb_model_epoch_12_mAP_0.934.pth")),
-            "Rezonator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/rezonator_model_epoch_6_mAP_0.934.pth")),
-            "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/rezystor_model_epoch_8_mAP_0.825.pth")),
-            "Przycisk": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/switch_best_model_epoch_14_mAP_0.966.pth")),
-            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/connectors_model_epoch_10_mAP_0.733.pth")),
+            "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/usb.pth")),
+            "Rezonator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/resonator.pth")),
+            "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/resistor.pth")),
+            "Przycisk": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/switch.pth")),
+            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/connectors.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -58,14 +67,11 @@ class Camera(QDialog):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.analyze = False
-        self.recording = False
-        self.video_writer = None
         self.frame_count = 0
 
         self.start_button.clicked.connect(self.start_camera)
         self.stop_button.clicked.connect(self.stop_camera)
         self.analyze_button.clicked.connect(self.toggle_analysis)
-        self.record_button.clicked.connect(self.toggle_recording)
         self.virtual_cam_button.clicked.connect(self.choose_virtual_camera)
         self.clear_image_button.clicked.connect(self.clear_image)
         self.pos_file.clicked.connect(self.on_pos_file_click)
@@ -102,28 +108,122 @@ class Camera(QDialog):
 
         self.is_mirrored = False  # Flaga do śledzenia stanu odbicia lustrzanego
 
-    # Przycisk z poprawioną funkcjonalnością
-    def on_pos_file_click(self):
-        # Sprawdź, czy obraz został przetworzony
-        if self.preprocessed_frame is None:
-            QMessageBox.warning(self, "Uwaga", "Najpierw wczytaj i przetwórz obraz!")
+        self.confidence_thresholds = {
+            "Kondensator": 0.9,
+            "Układ scalony": 0.90,
+            "Dioda": 0.55,
+            "USB": 0.8,
+            "Rezonator": 0.8,
+            "Rezystor": 0.5,
+            "Przycisk": 0.6,
+            "Złącze": 0.75,
+        }
+
+    def init_database(self):
+        """Inicjalizacja połączenia z bazą danych MySQL"""
+        try:
+            self.conn = mysql.connector.connect(**DB_CONFIG)
+            self.cursor = self.conn.cursor()
+            
+            # Sprawdź czy tabele istnieją, jeśli nie - utwórz je
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pcb_records (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    pcb_code VARCHAR(50) UNIQUE,
+                    date_analyzed DATETIME,
+                    image_path VARCHAR(255)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+            """)
+            
+            # Sprawdź czy kolumna component_type istnieje, jeśli nie - dodaj ją
+            try:
+                self.cursor.execute("""
+                    ALTER TABLE components ADD COLUMN component_type VARCHAR(100)
+                """)
+                self.conn.commit()
+                print("Dodano kolumnę component_type do tabeli components")
+            except mysql.connector.Error as e:
+                # Jeśli błąd to "Duplicate column name", to wszystko OK
+                if "Duplicate column" not in str(e):
+                    print(f"Błąd przy próbie dodania kolumny component_type: {e}")
+            
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS components (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    pcb_code VARCHAR(50),
+                    component_id VARCHAR(100),
+                    component_type VARCHAR(100),
+                    score FLOAT,
+                    bbox TEXT,
+                    FOREIGN KEY (pcb_code) REFERENCES pcb_records(pcb_code)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+            """)
+            
+            self.conn.commit()
+        except mysql.connector.Error as e:
+            print(f"Błąd podczas inicjalizacji bazy danych: {e}")
+            QMessageBox.critical(self, "Błąd", f"Nie udało się zainicjalizować bazy danych: {e}")
+
+    def save_pcb_data(self):
+        """Zapisuje dane PCB do bazy danych MySQL"""
+        if not self.bboxes:
+            QMessageBox.warning(self, "Uwaga", "Brak danych do zapisania!")
             return
             
-        # Wyświetl dialog wyboru pliku
-        options = QFileDialog.Options()
-        pos_file_path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz plik POS", "./pos_files/", 
-            "Pliki CSV (*.csv);;Wszystkie pliki (*)", 
-            options=options
+        # Pobierz kod PCB od użytkownika
+        pcb_code, ok = QInputDialog.getText(
+            self, 'Kod PCB', 
+            'Wprowadź kod PCB:',
+            text=f"PCB-{datetime.now().strftime('%Y%m%d')}-{len(self.bboxes)}"
         )
         
-        # Jeśli użytkownik anulował wybór pliku
-        if not pos_file_path:
+        if not ok or not pcb_code:
             return
             
-        # Wywołaj funkcję overlay_pos_markers z wybranym plikiem
-        self.overlay_pos_markers(self.preprocessed_frame, pos_file_path, self.cap_label.width(), self.cap_label.height())
-
+        try:
+            # Zapisz obraz
+            image_dir = "saved_images"
+            if not os.path.exists(image_dir):
+                os.makedirs(image_dir)
+                
+            image_path = os.path.join(image_dir, f"{pcb_code}.jpg")
+            cv2.imwrite(image_path, self.frozen_frame)
+            
+            # Zapisz dane PCB (jeśli nie istnieje lub aktualizuj)
+            self.cursor.execute('''
+                INSERT INTO pcb_records (pcb_code, date_analyzed, image_path)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE date_analyzed=%s, image_path=%s
+            ''', (pcb_code, datetime.now(), image_path, datetime.now(), image_path))
+            
+            # Zapisz komponenty
+            component_type = self.component.currentText()
+            for bbox in self.bboxes:
+                self.cursor.execute('''
+                    INSERT INTO components (pcb_code, component_id, component_type, score, bbox)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (
+                    pcb_code,
+                    bbox["id"],
+                    component_type,
+                    bbox["score"],
+                    str(bbox["bbox"])
+                ))
+            
+            self.conn.commit()
+            QMessageBox.information(self, "Sukces", f"Dane PCB {pcb_code} zostały zapisane!")
+            
+            # Odśwież historię jeśli jest otwarta
+            for widget in QApplication.topLevelWidgets():
+                if widget.__class__.__name__ == "History":
+                    widget.load_pcb_data()
+                    print("Odświeżono historię po zapisie")
+            
+        except mysql.connector.IntegrityError:
+            QMessageBox.warning(self, "Błąd", "PCB o takim kodzie już istnieje!")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd podczas zapisywania: {e}")
+            self.conn.rollback()
 
     def load_model(self, model_path):
         if os.path.exists(model_path):
@@ -258,8 +358,6 @@ class Camera(QDialog):
             self.cap.release()
             self.cap = None
         self.cap_label.setPixmap(QPixmap())
-        if self.recording:
-            self.toggle_recording()
 
     def toggle_analysis(self):
         # Sprawdź czy preprocessing został wykonany
@@ -319,53 +417,6 @@ class Camera(QDialog):
                 "detections": self.bboxes.copy()
             }
 
-    def toggle_recording(self):
-        if self.cap is None or not self.cap.isOpened():
-            QMessageBox.warning(self, "Uwaga", "Kamera nie jest uruchomiona!")
-            return
-
-        if self.recording:
-            self.recording = False
-            self.record_button.setText("Nagrywaj")
-            if self.video_writer:
-                self.video_writer.release()
-                self.video_writer = None
-                print("Nagrywanie zakończone.")
-        else:
-            options = QFileDialog.Options()
-            file_name, _ = QFileDialog.getSaveFileName(
-                self, "Zapisz nagranie", "", "MP4 Files (*.mp4);;AVI Files (*.avi);;All Files (*)", options=options
-            )
-
-            if not file_name:
-                print("Nie wybrano pliku.")
-                return
-
-            # Sprawdzenie, czy dodano rozszerzenie
-            if not (file_name.lower().endswith(".mp4") or file_name.lower().endswith(".avi")):
-                file_name += ".mp4"
-
-            # Dobór kodeka:
-            if file_name.lower().endswith(".mp4"):
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Najbezpieczniejszy dla MP4
-            else:
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-
-            # Rozdzielczość - dopasowanie do labela cap:
-            resolution = (self.cap_label.width(), self.cap_label.height())
-
-            # Próba utworzenia VideoWriter:
-            self.video_writer = cv2.VideoWriter(file_name, fourcc, 30.0, resolution)
-
-            if not self.video_writer.isOpened():
-                QMessageBox.critical(self, "Błąd", f"Nie udało się otworzyć pliku do zapisu: {file_name}")
-                print(f"Nie udało się otworzyć pliku: {file_name}")
-                return
-
-            self.recording = True
-            self.record_button.setText("Zatrzymaj Nagrywanie")
-            print(f"Nagrywanie rozpoczęte: {file_name}")
-
     def detect_components(self, frame):
         """Funkcja wykrywająca komponenty na obrazie"""
         # W tym miejscu frame powinien być już po preprocessingu
@@ -399,7 +450,8 @@ class Camera(QDialog):
         count = 0
         
         # Ustawiam niższy próg pewności - tak jak w test.py
-        confidence_threshold = 0.9  # Zmniejszono z 0.75 na 0.5
+        component_name = self.component.currentText()
+        confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
         print(f"Liczba wykrytych obiektów przed filtrowaniem: {len(predictions['boxes'])}")
 
         for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
@@ -1314,12 +1366,6 @@ class Camera(QDialog):
 
         # Wyświetlanie obrazu za pomocą metody show_frame
         self.show_frame(frame)
-        
-        # Zapisujemy nagranie wideo, jeśli jest włączone
-        if self.recording and self.video_writer:
-            # Powinniśmy zapisać oryginalną ramkę, a nie już przetworzoną z show_frame
-            # aby uniknąć zapisywania efektu odbicia lustrzanego w pliku wideo
-            self.video_writer.write(original_frame)
 
     def show_frame(self, frame, info_text=None):
         """Funkcja pomocnicza do wyświetlania obrazu - poprawiona skalowanie"""
@@ -1360,9 +1406,6 @@ class Camera(QDialog):
         # Zapewniamy poprawny format koloru (BGR dla OpenCV)
         qimg = QImage(frame_resized.data, w, h, bytes_per_line, QImage.Format_BGR888)
         self.cap_label.setPixmap(QPixmap.fromImage(qimg))
-
-        if self.recording and self.video_writer:
-            self.video_writer.write(frame)
 
     def toggle_preprocessing_view(self):
         """Przełącza widok między oryginalnym obrazem a obrazem po preprocessingu"""
@@ -1466,6 +1509,9 @@ class Camera(QDialog):
             self.bboxes.append({"id": id_, "bbox": (x1, y1, x2, y2), "color": (0, 255, 0), "score": detection["score"]})  # zielony
         
         print(f"Zaktualizowano listę komponentów, dodano {len(self.bboxes)} elementów")
+        
+        # Aktywuj przycisk zapisu jeśli są wykryte komponenty
+        self.save_button.setEnabled(len(self.bboxes) > 0)
 
     def highlight_bbox(self, item):
         """Zmienia kolor bounding boxa po kliknięciu w ID na liście"""
@@ -1513,7 +1559,10 @@ class Camera(QDialog):
             self.cap_label.repaint()  # Wymuś ponowne narysowanie
 
     def closeEvent(self, event):
+        """Zamykanie aplikacji i bazy danych"""
         self.stop_camera()
+        if hasattr(self, 'conn'):
+            self.conn.close()
         event.accept()
 
     def toggle_mirror(self):
@@ -1534,3 +1583,31 @@ class Camera(QDialog):
             # Jeśli mamy zamrożoną klatkę, odświeżamy ją
             if self.frozen and self.frozen_frame is not None:
                 self.show_frame(self.overlayed_frame)
+
+    def on_pos_file_click(self):
+        """Obsługa kliknięcia przycisku wyboru pliku POS"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+            
+        # Wyświetl dialog wyboru pliku
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz plik POS", "", 
+            "Pliki CSV (*.csv);;Wszystkie pliki (*)", 
+            options=options
+        )
+        
+        if not file_name:
+            return
+            
+        try:
+            # Nałóż markery POS na obraz
+            self.overlay_pos_markers(
+                self.preprocessed_frame,
+                file_name,
+                self.cap_label.width(),
+                self.cap_label.height()
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Nie udało się nałożyć markerów POS: {str(e)}")

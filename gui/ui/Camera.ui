@@ -382,19 +382,6 @@ QToolTip {
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="record_button">
-              <property name="text">
-               <string>REC</string>
-              </property>
-              <property name="toolTip">
-               <string>Rozpocznij/zatrzymaj nagrywanie</string>
-              </property>
-              <property name="checkable">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
              <widget class="QPushButton" name="clear_image_button">
               <property name="text">
                <string>Wyczyść</string>
@@ -418,6 +405,19 @@ QToolTip {
              </size>
             </property>
            </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="refresh_status_label">
+            <property name="text">
+             <string>Ostatnie odświeżanie</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">color: #dcddde;</string>
+            </property>
+           </widget>
           </item>
           <item>
            <layout class="QHBoxLayout" name="optionsLayout">
@@ -655,6 +655,24 @@ QToolTip {
           </property>
           <property name="horizontalScrollBarPolicy">
            <enum>Qt::ScrollBarAlwaysOff</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="save_button">
+          <property name="geometry">
+           <rect>
+            <x>1000</x>
+            <y>400</y>
+            <width>150</width>
+            <height>30</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Zapisz</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
           </property>
          </widget>
         </item>

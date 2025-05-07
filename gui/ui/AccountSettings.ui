@@ -14,7 +14,7 @@
   </property>
   <property name="styleSheet">
    <string notr="true">
-/* --- Styl widżetu ustawień konta --- */
+/* --- Ogólny styl okna --- */
 QWidget#AccountSettingsWidget {
     background-color: #2f3136;
     color: #e8e9ea;
@@ -26,25 +26,23 @@ QWidget#AccountSettingsWidget {
 QWidget#contentWidget {
     background-color: #36393f;
     border-radius: 8px;
-    padding: 25px;
 }
 
 /* --- Avatar --- */
 QLabel#avatarPlaceholder {
-    background-color: #4f545c; /* Ciemniejszy szary */
-    border: 2px solid #5865F2; /* Ramka w kolorze akcentu */
-    border-radius: 50px; /* Połowa szerokości/wysokości (100/2) dla koła */
+    background-color: #4f545c;
+    border: 2px solid #5865F2;
+    border-radius: 50px;
     min-width: 100px;
     max-width: 100px;
     min-height: 100px;
     max-height: 100px;
-    qproperty-alignment: 'AlignCenter'; /* Gdybyś chciał dodać inicjały */
+    qproperty-alignment: 'AlignCenter';
     color: #dcddde;
     font-size: 40px;
     font-weight: 600;
-    margin-bottom: 15px; /* Odstęp pod avatarem */
+    margin-bottom: 15px;
 }
-
 
 /* --- Ogólny styl etykiet --- */
 QLabel {
@@ -52,77 +50,83 @@ QLabel {
     background-color: transparent;
     padding: 0px;
     margin: 0px;
-    font-size: 14px;
-    font-weight: 500;
 }
 
 /* --- Styl tytułu --- */
-QLabel#titleLabel {
+QLabel#label {
     color: #ffffff;
     font-size: 26px;
     font-weight: 600;
-    padding-top: 5px;
-    padding-bottom: 30px; /* Zwiększony odstęp pod tytułem */
+    padding-top: 10px;
+    padding-bottom: 25px;
 }
 
 /* --- Styl pól edycji --- */
 QLineEdit {
     background-color: #40444b;
     color: #e8e9ea;
-    border: 1px solid #4f545c; /* Lekko widoczniejsza ramka */
+    border: 1px solid #202225;
     border-radius: 5px;
     font-size: 14px;
-    padding: 10px 12px; /* Zwiększony padding pionowy */
-    min-height: 30px; /* Zaktualizowana minimalna wysokość */
+    padding: 8px 12px;
+    min-height: 28px;
     selection-background-color: #5865F2;
     selection-color: #ffffff;
 }
+
 QLineEdit:focus {
-    border: 1px solid #5865F2; /* Ramka przy fokusie */
+    border: 1px solid #5865F2;
     background-color: #444950;
 }
+
 QLineEdit::placeholder-text {
-  color: #72767d;
-}
-QLineEdit:read-only {
-    background-color: #3a3d42;
-    color: #a0a3a7;
-    border: 1px solid #2a2c30;
+    color: #72767d;
 }
 
-
-/* --- Styl przycisku zapisu --- */
+/* --- Styl przycisku --- */
 QPushButton#saveChanges {
     background-color: #5865F2;
     color: white;
     font-size: 14px;
     font-weight: 600;
-    padding: 10px 28px; /* Zwiększony padding */
+    padding: 8px 20px;
     border-radius: 5px;
     border: none;
-    min-height: 34px; /* Zaktualizowana minimalna wysokość */
+    min-height: 30px;
     outline: none;
-    margin-top: 20px;
+    margin-top: 15px;
 }
+
 QPushButton#saveChanges:hover {
     background-color: #4e5dcf;
 }
+
 QPushButton#saveChanges:pressed {
     background-color: #404ab8;
 }
+
 QPushButton#saveChanges:disabled {
     background-color: #40444b;
     color: #72767d;
-    opacity: 0.7;
+    opacity: 0.6;
 }
 
-/* --- Styl etykiety statusu/błędu --- */
-QLabel#statusLabel {
-    color: #43b581;
-    font-size: 13px;
+/* --- Styl dla etykiet formularza --- */
+QLabel[name^="label_"] {
+    color: #b9bbbe;
     font-weight: 500;
-    min-height: 22px;
-    padding: 5px 0;
+    font-size: 14px;
+    padding-right: 10px;
+}
+
+/* --- Styl dla grup formularza --- */
+QGridLayout {
+    margin: 10px 0;
+}
+
+/* --- Styl dla spacerów --- */
+QSpacerItem {
+    background-color: transparent;
 }
    </string>
   </property>
@@ -183,7 +187,7 @@ QLabel#statusLabel {
        <number>30</number>
       </property>
       <item alignment="Qt::AlignHCenter|Qt::AlignTop">
-       <widget class="QLabel" name="titleLabel">
+       <widget class="QLabel" name="label">
         <property name="text">
          <string>Moje Konto</string>
         </property>

@@ -54,6 +54,18 @@ QTableView#tableWidget::item {
     border-bottom: 1px solid #4f545c;
 }
 
+QTableView#tableWidget::item:selected {
+    background-color: #5865F2;
+    color: #ffffff;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+QTableView#tableWidget::item:hover:!selected {
+    background-color: #4f545c;
+    border-radius: 3px;
+}
+
 /* --- Nagłówki Tabeli --- */
 QHeaderView::section {
     background-color: #2f3136;
@@ -219,6 +231,40 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="refreshButton">
+        <property name="text">
+         <string>Odśwież</string>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">
+          QPushButton#refreshButton {
+            background-color: #4f545c;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 20px;
+            border-radius: 5px;
+            border: none;
+            min-height: 28px;
+            outline: none;
+          }
+          QPushButton#refreshButton:hover { background-color: #5d6269; }
+          QPushButton#refreshButton:pressed { background-color: #6b6f79; }
+          QPushButton#refreshButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
+         </string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="bottomSpacer">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -230,6 +276,40 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="deletePcbButton">
+        <property name="text">
+         <string>Usuń płytkę PCB</string>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">
+          QPushButton#deletePcbButton {
+            background-color: #ed4245;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 20px;
+            border-radius: 5px;
+            border: none;
+            min-height: 28px;
+            outline: none;
+          }
+          QPushButton#deletePcbButton:hover { background-color: #c03537; }
+          QPushButton#deletePcbButton:pressed { background-color: #a12d2f; }
+          QPushButton#deletePcbButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
+         </string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

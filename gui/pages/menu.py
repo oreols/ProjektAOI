@@ -45,6 +45,9 @@ class MainWindow(QMainWindow):
         # Akcja wylogowania
         self.actionLogout.triggered.connect(self.logout)
 
+        # Automatyczne przełączenie na widok kamery po zalogowaniu
+        self.stackedWidget.setCurrentIndex(self.index_camera)
+
     def logout(self):
         print("Wylogowano!")
         self.widget.setCurrentIndex(0)
