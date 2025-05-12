@@ -200,34 +200,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
         </property>
        </widget>
       </item>
-      <item> <layout class="QHBoxLayout" name="buttonGroupLayout">
-        <property name="spacing"><number>10</number></property>
-         <item> <widget class="QPushButton" name="dayButton">
-           <property name="text"><string>Dzień</string></property>
-           <property name="checkable"><bool>false</bool></property>
-           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-          </widget>
-         </item>
-         <item> <widget class="QPushButton" name="weekButton">
-           <property name="text"><string>Tydzień</string></property>
-           <property name="checkable"><bool>false</bool></property>
-           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-          </widget>
-         </item>
-         <item> <widget class="QPushButton" name="monthButton">
-           <property name="text"><string>Miesiąc</string></property>
-           <property name="checkable"><bool>false</bool></property>
-           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-           </widget>
-         </item>
-         <item> <widget class="QPushButton" name="yearButton">
-           <property name="text"><string>Rok</string></property>
-           <property name="checkable"><bool>false</bool></property>
-           <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-          </widget>
-         </item>
-       </layout>
-      </item>
      </layout>
     </widget>
    </item>

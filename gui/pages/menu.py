@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
         self.widget = widget
 
         # Dodanie widżetów do stackedWidget z zapisaniem ich indeksów
-        self.index_reports = self.stackedWidget.addWidget(Reports())
+        self.index_reports = self.stackedWidget.addWidget(Reports(user_id=self.user_id))
         self.index_camera = self.stackedWidget.addWidget(Camera())
         self.index_history = self.stackedWidget.addWidget(History())
         self.index_account = self.stackedWidget.addWidget(Account())
