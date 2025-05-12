@@ -77,7 +77,9 @@ QTableWidget#tableWidget {
 }
 /* Zwiększony padding komórek dla większej wysokości wiersza */
 QTableWidget#tableWidget::item {
-    padding: 10px 8px; /* Zwiększono padding pionowy */
+    padding: 12px 10px; /* Zwiększono padding pionowy i poziomy */
+    text-overflow: ellipsis;
+    min-height: 30px; /* Minimalna wysokość komórki */
 }
 
 
@@ -85,12 +87,12 @@ QTableWidget#tableWidget::item {
 QHeaderView::section {
     background-color: #2f3136;
     color: #ffffff;
-    padding: 12px 10px;
+    padding: 15px 12px; /* Zwiększony padding */
     border: none;
     border-bottom: 1px solid #4f545c;
     font-size: 14px;
     font-weight: 600;
-    /* Wysokość nagłówka jest kontrolowana przez padding */
+    min-height: 30px; /* Minimalna wysokość nagłówka */
 }
 QHeaderView::section:horizontal { border-right: 1px solid #4f545c; }
 QHeaderView::section:horizontal:last { border-right: none; }
@@ -141,6 +143,21 @@ QPushButton#backButton:hover { background-color: #4e5dcf; }
 QPushButton#backButton:pressed { background-color: #404ab8; }
 QPushButton#backButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
 
+/* --- Przycisk Odświeżania --- */
+QPushButton#refreshButton {
+    background-color: #4f545c;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 20px;
+    border-radius: 5px;
+    border: none;
+    min-height: 28px;
+    outline: none;
+}
+QPushButton#refreshButton:hover { background-color: #5d6269; }
+QPushButton#refreshButton:pressed { background-color: #6b6f79; }
+QPushButton#refreshButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
 
 /* Paski przewijania */
 QScrollBar:vertical { border: none; background: #2f3136; width: 12px; margin: 0px; }
@@ -262,19 +279,20 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
      <property name="frameShadow"><enum>QFrame::Raised</enum></property>
      <layout class="QHBoxLayout" name="bottomBarLayout">
       <property name="spacing"><number>15</number></property>
-      <property name="leftMargin"><number>0</number></property>
-      <property name="topMargin"><number>0</number></property>
-      <property name="rightMargin"><number>0</number></property>
-      <property name="bottomMargin"><number>0</number></property>
-      <item> <widget class="QPushButton" name="backButton">
-        <property name="text"><string>Powrót</string></property>
-        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch><verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-       </widget>
+      <property name="leftMargin"><number>15</number></property>
+      <property name="topMargin"><number>10</number></property>
+      <property name="rightMargin"><number>15</number></property>
+      <property name="bottomMargin"><number>10</number></property>
+      <item>
+        <widget class="QPushButton" name="refreshButton">
+         <property name="text"><string>Odśwież</string></property>
+         <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch><verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
       </item>
       <item>
        <spacer name="bottomSpacer"> <property name="orientation"><enum>Qt::Horizontal</enum></property>

@@ -5,7 +5,7 @@ import os
 from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton, QInputDialog, QApplication
 import torchvision
 import torch
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt
 from models.faster_rcnn import get_model
 import urllib.request
 import numpy as np
@@ -16,6 +16,57 @@ import csv
 import mysql.connector
 from datetime import datetime
 from db_config import DB_CONFIG
+import concurrent.futures
+import time
+
+class DetectionWorker(QThread):
+    """Klasa do wykonywania detekcji w osobnym wątku"""
+    finished = pyqtSignal(object, str)  # Sygnał wysyłany po zakończeniu detekcji (wyniki, nazwa_komponentu)
+    
+    def __init__(self, model, frame, component_name, confidence_threshold, device):
+        super().__init__()
+        self.model = model
+        self.frame = frame
+        self.component_name = component_name
+        self.confidence_threshold = confidence_threshold
+        self.device = device
+        
+    def run(self):
+        try:
+            # Konwersja BGR do RGB
+            rgb_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+            
+            # Konwersja do tensora
+            tensor_frame = torch.tensor(rgb_frame).permute(2, 0, 1).float() / 255.0
+            tensor_frame = tensor_frame.unsqueeze(0).to(self.device)
+            
+            # Wykonanie detekcji
+            with torch.no_grad():
+                predictions = self.model(tensor_frame)[0]
+            
+            # Filtrowanie detekcji na podstawie progu pewności
+            detections = []
+            count = 0
+            
+            for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
+                if score > self.confidence_threshold:
+                    count += 1
+                    x1, y1, x2, y2 = map(int, box.cpu().numpy())
+                    detections.append({
+                        "id": f"{self.component_name}:{count}|Score: {score.item():.2f}", 
+                        "bbox": (x1, y1, x2, y2), 
+                        "score": float(score.item()),
+                        "component_type": self.component_name
+                    })
+            
+            # Emituj sygnał z wynikami
+            self.finished.emit(detections, self.component_name)
+            
+        except Exception as e:
+            print(f"Błąd w DetectionWorker dla {self.component_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            self.finished.emit([], self.component_name)
 
 class Camera(QDialog):
     def __init__(self):
@@ -118,6 +169,16 @@ class Camera(QDialog):
             "Przycisk": 0.6,
             "Złącze": 0.75,
         }
+
+        # Nowa lista do przechowywania wszystkich detekcji ze wszystkich modeli
+        self.all_detections = []
+        
+        # Podłączam nowy przycisk do analizy wszystkich komponentów
+        self.analyze_all_button = self.findChild(QPushButton, "analyze_all_button")
+        self.analyze_all_button.clicked.connect(self.analyze_all_components)
+        
+        # Stan do śledzenia aktualnie załadowanego modelu
+        self.current_model_name = None
 
     def init_database(self):
         """Inicjalizacja połączenia z bazą danych MySQL"""
@@ -1611,3 +1672,184 @@ class Camera(QDialog):
             )
         except Exception as e:
             QMessageBox.critical(self, "Błąd", f"Nie udało się nałożyć markerów POS: {str(e)}")
+
+    def analyze_all_components(self):
+        """Analizuje wszystkie typy komponentów jednocześnie na obrazie"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+        
+        # Jeśli analiza już jest w toku, zatrzymaj ją
+        if hasattr(self, 'workers') and self.workers:
+            QMessageBox.warning(self, "Uwaga", "Analiza jest już w toku!")
+            return
+        
+        # Pobierz przetworzony obraz
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            analyze_frame = self.overlayed_frame.copy()
+        else:
+            analyze_frame = self.preprocessed_frame.copy()
+        
+        # Zmień tekst przycisku i wyłącz go na czas analizy
+        self.analyze_all_button.setText("Analizowanie...")
+        self.analyze_all_button.setEnabled(False)
+        
+        # Lista wszystkich modeli do przetworzenia
+        components = list(self.model_paths.keys())
+        models_to_process = []
+        
+        for component_name in components:
+            model_path = self.model_paths[component_name]
+            confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
+            
+            # Utwórz model dla tego komponentu
+            try:
+                model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(state_dict)
+                model.to(self.device)
+                model.eval()
+                
+                models_to_process.append({
+                    'model': model,
+                    'component_name': component_name,
+                    'confidence_threshold': confidence_threshold
+                })
+                
+            except Exception as e:
+                print(f"Błąd podczas ładowania modelu {component_name}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Wyczyść poprzednie detekcje
+        self.all_detections = []
+        self.bboxes = []
+        
+        # Utwórz wątki dla każdego modelu
+        self.workers = []
+        for model_info in models_to_process:
+            worker = DetectionWorker(
+                model_info['model'],
+                analyze_frame,
+                model_info['component_name'],
+                model_info['confidence_threshold'],
+                self.device
+            )
+            worker.finished.connect(self.handle_detection_results)
+            self.workers.append(worker)
+            worker.start()
+        
+        # Uruchom timer sprawdzający stan wszystkich wątków
+        self.check_workers_timer = QTimer()
+        self.check_workers_timer.timeout.connect(self.check_workers_status)
+        self.check_workers_timer.start(1000)  # Sprawdzaj co 1 sekundę
+    
+    def handle_detection_results(self, detections, component_name):
+        """Obsługuje wyniki detekcji z wątku DetectionWorker"""
+        if detections:
+            print(f"Otrzymano {len(detections)} detekcji dla komponentu {component_name}")
+            # Dodaj detekcje do listy wszystkich detekcji
+            for det in detections:
+                self.all_detections.append(det)
+        else:
+            print(f"Brak detekcji dla komponentu {component_name}")
+    
+    def check_workers_status(self):
+        """Sprawdza stan wszystkich wątków detekcji i aktualizuje UI po zakończeniu"""
+        all_finished = all(not worker.isRunning() for worker in self.workers)
+        
+        if all_finished:
+            self.check_workers_timer.stop()
+            
+            # Aktualizuj UI z wynikami
+            self.process_all_detections()
+            
+            # Zresetuj stan
+            self.workers = []
+            self.analyze_all_button.setText("Analizuj wszystko")
+            self.analyze_all_button.setEnabled(True)
+    
+    def process_all_detections(self):
+        """Przetwarza wszystkie detekcje i aktualizuje UI"""
+        if not self.all_detections:
+            QMessageBox.information(self, "Informacja", "Nie wykryto żadnych komponentów!")
+            return
+        
+        # Aktualizuj listę komponentów
+        self.update_component_list(self.all_detections)
+        
+        # Wyświetl obraz z zaznaczonymi komponentami
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            display_frame = self.overlayed_frame.copy()
+        else:
+            display_frame = self.preprocessed_frame.copy()
+        
+        # Rysuj bounding boxy dla wszystkich detekcji
+        for bbox in self.bboxes:
+            x1, y1, x2, y2 = bbox["bbox"]
+            color = bbox["color"]
+            cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
+            cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+        
+        # Zapamiętaj ramkę z boxami
+        self.frozen_frame = display_frame.copy()
+        self.frozen_bboxes = self.bboxes.copy()
+        
+        # Wyświetl zaktualizowany obraz
+        self.show_frame(display_frame, "Wykryte komponenty wszystkich typów")
+        
+        # Aktywuj przycisk zapisu
+        self.save_button.setEnabled(True)
+        
+        # Informacja dla użytkownika
+        print(f"Łącznie wykryto {len(self.bboxes)} komponentów")
+        QMessageBox.information(self, "Informacja", f"Wykryto {len(self.bboxes)} komponentów różnych typów")
+
+    def update_component_list(self, detections):
+        """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów"""
+        self.component_list.clear()  # Czyści starą listę
+        self.bboxes = []  # Lista boxów
+
+        print(f"Otrzymano {len(detections)} detekcji do aktualizacji listy")
+        
+        # Dla analizy wszystkich komponentów może być potrzebne przetworzenie
+        # detections w różny sposób w zależności od formatu
+        if isinstance(detections, list) and detections and isinstance(detections[0], dict):
+            # Lista słowników, standardowy format
+            for i, detection in enumerate(detections):
+                x1, y1, x2, y2 = detection["bbox"]
+                component_type = detection.get("component_type", "Nieznany")
+                id_ = f"{component_type}:{i+1}|Score: {detection['score']:.2f}"
+                self.component_list.addItem(id_)
+                self.bboxes.append({
+                    "id": id_, 
+                    "bbox": (x1, y1, x2, y2), 
+                    "color": (0, 255, 0), 
+                    "score": detection["score"],
+                    "component_type": component_type
+                })
+        elif isinstance(detections, list) and detections and isinstance(detections[0], tuple):
+            # Lista krotek (detekcje, nazwa_komponentu), format z analizy wszystkich
+            for det_tuple in detections:
+                if len(det_tuple) == 2 and isinstance(det_tuple[0], list):
+                    dets, component_type = det_tuple
+                    for i, det in enumerate(dets):
+                        x1, y1, x2, y2 = det["bbox"]
+                        id_ = f"{component_type}:{i+1}|Score: {det['score']:.2f}"
+                        self.component_list.addItem(id_)
+                        self.bboxes.append({
+                            "id": id_, 
+                            "bbox": (x1, y1, x2, y2), 
+                            "color": (0, 255, 0), 
+                            "score": det["score"],
+                            "component_type": component_type
+                        })
+        else:
+            # Nieznany format lub pusta lista
+            print(f"Nieznany format detekcji lub pusta lista")
+        
+        print(f"Zaktualizowano listę komponentów, dodano {len(self.bboxes)} elementów")
+        
+        # Aktywuj przycisk zapisu jeśli są wykryte komponenty
+        self.save_button.setEnabled(len(self.bboxes) > 0)

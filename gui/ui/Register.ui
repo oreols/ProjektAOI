@@ -554,7 +554,7 @@ QLabel#error_msg {
             </property>
            </spacer>
           </item>
-          <item> <widget class="QPushButton" name="backButton">
+          <!-- <item> <widget class="QPushButton" name="backButton">
              <property name="text">
               <string>Powrót</string>
              </property>
@@ -567,7 +567,7 @@ QLabel#error_msg {
               </sizepolicy>
              </property>
             </widget>
-          </item>
+          </item> -->
           <item> <widget class="QPushButton" name="addAccountButton">
             <property name="enabled">
              <bool>true</bool>
@@ -639,7 +639,7 @@ QLabel#error_msg {
   <tabstop>confirm_password</tabstop>
   <tabstop>position</tabstop>
   <tabstop>permisions</tabstop>
-  <tabstop>backButton</tabstop> <tabstop>addAccountButton</tabstop>
+  <tabstop>addAccountButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>

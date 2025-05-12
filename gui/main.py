@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QStackedWidget
+from PyQt5.QtWidgets import QApplication, QStackedWidget, QSystemTrayIcon
 from PyQt5.QtGui import QIcon
 from pages.login import Login
 from pages.camera import Camera
@@ -17,8 +17,9 @@ icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "
 os.makedirs(icons_dir, exist_ok=True)
 
 # Ustawienie ikony aplikacji
-icon_path = os.path.join(icons_dir, "aoi_icon.png")
-app.setWindowIcon(QIcon(icon_path))
+app.tray_icon = QSystemTrayIcon(QIcon("assets/icons/logo.png"), app)
+app.tray_icon.show()
+app.setWindowIcon(QIcon("assets/icons/logo.png"))
 
 widget = QStackedWidget()
 widget.setWindowTitle("System Analizy PCB - AOI")

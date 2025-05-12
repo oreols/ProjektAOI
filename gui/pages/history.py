@@ -52,9 +52,6 @@ class History(QDialog):
             # Podłączenie pola wyszukiwania do filtra
             self.search_field.textChanged.connect(self.filter_proxy_model.setFilterFixedString)
             
-            # Podłączenie przycisków
-            self.backButton.clicked.connect(self.close)
-            
             # Podłączenie przycisku odświeżania
             if hasattr(self, 'refreshButton'):
                 print("Podłączanie przycisku odświeżania...")

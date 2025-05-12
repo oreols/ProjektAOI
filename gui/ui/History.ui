@@ -145,22 +145,6 @@ QFrame#bottomBar {
     max-height: 45px;
 }
 
-/* --- Przycisk Powrotu --- */
-QPushButton#backButton {
-    background-color: #5865F2;
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 20px;
-    border-radius: 5px;
-    border: none;
-    min-height: 28px;
-    outline: none;
-}
-QPushButton#backButton:hover { background-color: #4e5dcf; }
-QPushButton#backButton:pressed { background-color: #404ab8; }
-QPushButton#backButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.7; }
-
 /* --- Przycisk Odświeżania --- */
 QPushButton#refreshButton {
     background-color: #4f545c;
@@ -307,22 +291,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item>
-       <widget class="QPushButton" name="backButton">
-        <property name="text">
-         <string>Powrót</string>
-        </property>
-        <property name="cursor">
-         <cursorShape>PointingHandCursor</cursorShape>
-        </property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-       </widget>
-      </item>
       <item>
        <widget class="QPushButton" name="refreshButton">
         <property name="text">
