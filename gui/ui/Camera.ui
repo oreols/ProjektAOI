@@ -409,7 +409,7 @@ QToolTip {
           <item>
            <widget class="QLabel" name="refresh_status_label">
             <property name="text">
-             <string>Ostatnie odświeżanie</string>
+             <string></string>
             </property>
             <property name="alignment">
              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

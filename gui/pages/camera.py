@@ -2,10 +2,10 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 import cv2
 import os
-from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton, QInputDialog, QApplication
+from PyQt5.QtWidgets import QDialog, QLabel, QMessageBox, QFileDialog, QListWidget, QPushButton, QInputDialog, QApplication, QWidget
 import torchvision
 import torch
-from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt
+from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt, QRect, QPropertyAnimation, QPoint, QSequentialAnimationGroup
 from models.faster_rcnn import get_model
 import urllib.request
 import numpy as np
@@ -18,6 +18,98 @@ from datetime import datetime
 from db_config import DB_CONFIG
 import concurrent.futures
 import time
+
+class LoadingOverlay(QWidget):
+    """Widżet nakładki z animowanym wskaźnikiem ładowania"""
+    
+    def __init__(self, parent=None):
+        super(LoadingOverlay, self).__init__(parent)
+        
+        # Ustawienia wyglądu
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(parent.size())
+        
+        # Utworzenie etykiety dla tekstu ładowania
+        self.loading_label = QLabel(self)
+        self.loading_label.setText("Analizowanie komponentów...")
+        self.loading_label.setStyleSheet("""
+            color: white;
+            background-color: #4b7bec;
+            border-radius: 10px;
+            padding: 10px 15px;
+            font-weight: bold;
+        """)
+        self.loading_label.setAlignment(Qt.AlignCenter)
+        
+        # Wyśrodkuj etykietę
+        self.loading_label.adjustSize()
+        self.loading_label.move(
+            self.width() // 2 - self.loading_label.width() // 2,
+            self.height() // 2 - self.loading_label.height() // 2
+        )
+        
+        # Wskaźniki kropek dla animacji
+        self.dots = [".", "..", "..."]
+        self.dots_index = 0
+        
+        # Timer do animacji kropek
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self.update_animation)
+        self.animation_timer.start(500)  # Co 500ms
+        
+        # Animacja pulsowania etykiety
+        self.pulse_animation = QPropertyAnimation(self.loading_label, b"geometry")
+        self.pulse_animation.setDuration(1000)
+        
+        # Ustawienie animacji pulsowania
+        start_rect = self.loading_label.geometry()
+        end_rect = QRect(
+            start_rect.x() - 5, 
+            start_rect.y() - 5, 
+            start_rect.width() + 10, 
+            start_rect.height() + 10
+        )
+        
+        # Utwórz grupę animacji dla efektu pulsowania
+        self.animation_group = QSequentialAnimationGroup(self)
+        
+        # Dodaj animację powiększania
+        self.pulse_animation.setStartValue(start_rect)
+        self.pulse_animation.setEndValue(end_rect)
+        self.animation_group.addAnimation(self.pulse_animation)
+        
+        # Dodaj animację zmniejszania
+        self.pulse_back = QPropertyAnimation(self.loading_label, b"geometry")
+        self.pulse_back.setDuration(1000)
+        self.pulse_back.setStartValue(end_rect)
+        self.pulse_back.setEndValue(start_rect)
+        self.animation_group.addAnimation(self.pulse_back)
+        
+        # Ustaw zapętlenie animacji
+        self.animation_group.setLoopCount(-1)  # -1 oznacza zapętlenie w nieskończoność
+        self.animation_group.start()
+    
+    def update_animation(self):
+        """Aktualizuje animację kropek"""
+        self.dots_index = (self.dots_index + 1) % len(self.dots)
+        text = f"Analizowanie komponentów{self.dots[self.dots_index]}"
+        self.loading_label.setText(text)
+    
+    def paintEvent(self, event):
+        """Rysuje półprzezroczyste tło"""
+        import PyQt5.QtGui as QtGui
+        painter = QtGui.QPainter(self)
+        painter.fillRect(self.rect(), QtGui.QColor(0, 0, 0, 128))  # Półprzezroczyste czarne tło
+    
+    def showEvent(self, event):
+        """Dopasowanie rozmiaru etykiety podczas pokazywania"""
+        super(LoadingOverlay, self).showEvent(event)
+        self.loading_label.adjustSize()
+        self.loading_label.move(
+            self.width() // 2 - self.loading_label.width() // 2,
+            self.height() // 2 - self.loading_label.height() // 2
+        )
 
 class DetectionWorker(QThread):
     """Klasa do wykonywania detekcji w osobnym wątku"""
@@ -469,7 +561,7 @@ class Camera(QDialog):
             self.frozen_bboxes = self.bboxes.copy()
             
             # Wyświetl zaktualizowany obraz
-            self.show_frame(display_frame, "Analiza komponentów na wyciętej płytce")
+            self.show_frame(display_frame, "")
             print(f"Wykryto {len(self.bboxes)} obiektów")
             
             # Zapisz wyniki detekcji wraz z obrazem
@@ -557,7 +649,7 @@ class Camera(QDialog):
             self.is_preprocessed = True
             
             # Wyświetl przetworzony obraz
-            self.show_frame(processed_img, "Płytka PCB po preprocessingu")
+            self.show_frame(processed_img, "")
             
             # Aktywuj przyciski
             self.analyze_button.setEnabled(True)
@@ -819,7 +911,7 @@ class Camera(QDialog):
         rotated_pcb = self.rotate_pcb_to_horizontal(cropped_pcb, adjusted_corners)
         
         # Pokaż wycięty i obrócony obraz
-        self.show_frame(rotated_pcb, "Wycięta i obrócona płytka PCB")
+        self.show_frame(rotated_pcb, "")
         
         # Daj użytkownikowi szansę potwierdzenia wykrytej płytki
         result = QMessageBox.question(self, "Wykrywanie płytki PCB", 
@@ -854,7 +946,7 @@ class Camera(QDialog):
                                       cv2.THRESH_BINARY_INV, 51, 10)
         
         # Pokaż obraz po progowaniu
-        self.show_frame(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR), "Obraz po progowaniu adaptacyjnym")
+        self.show_frame(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR), "")
         
         # 3. Zastosuj operacje morfologiczne, aby usunąć szum i wzmocnić kontury
         kernel = np.ones((15, 15), np.uint8)
@@ -862,7 +954,7 @@ class Camera(QDialog):
         morph = cv2.morphologyEx(morph, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
         
         # Pokaż obraz po operacjach morfologicznych
-        self.show_frame(cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR), "Obraz po operacjach morfologicznych")
+        self.show_frame(cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR), "")
         
         # 4. Znajdź kontury
         contours, _ = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -928,7 +1020,7 @@ class Camera(QDialog):
                 rotated_pcb = self.rotate_pcb_to_horizontal(cropped_pcb, adjusted_corners)
                 
                 # Pokaż wycięty i obrócony obraz przed kontynuacją
-                self.show_frame(rotated_pcb, "Wycięta i obrócona płytka PCB (metoda alternatywna)")
+                self.show_frame(rotated_pcb, "")
                 
                 # Daj użytkownikowi szansę potwierdzenia wykrytych konturów
                 result = QMessageBox.question(self, "Wykrywanie płytki PCB", 
@@ -1023,7 +1115,7 @@ class Camera(QDialog):
             rotated_pcb = self.rotate_pcb_to_horizontal(cropped_pcb, adjusted_corners)
             
             # Pokaż wycięty i obrócony obraz przed kontynuacją
-            self.show_frame(rotated_pcb, "Wycięta i obrócona płytka PCB (metoda różnicy kolorów)")
+            self.show_frame(rotated_pcb, "")
             
             # Daj użytkownikowi szansę potwierdzenia wykrytych konturów
             result = QMessageBox.question(self, "Wykrywanie płytki PCB", 
@@ -1131,13 +1223,13 @@ class Camera(QDialog):
         denoised = cv2.bilateralFilter(pcb_image, d=3, sigmaColor=15, sigmaSpace=15)
         
         # Pokaż obraz po odszumianiu
-        self.show_frame(denoised, "Obraz po delikatnym odszumianiu")
+        self.show_frame(denoised, "")
         
         # 3. Delikatna poprawa kontrastu i jasności
         adjusted = cv2.convertScaleAbs(denoised, alpha=1.05, beta=3)
         
         # Pokaż obraz po delikatnej poprawie kontrastu
-        self.show_frame(adjusted, "Obraz po delikatnej poprawie kontrastu")
+        self.show_frame(adjusted, "")
         
         # 4. Bardzo subtelne wyrównanie histogramu tylko na kanale jasności
         hsv = cv2.cvtColor(adjusted, cv2.COLOR_BGR2HSV)
@@ -1149,7 +1241,7 @@ class Camera(QDialog):
         result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
         
         # Pokaż obraz po delikatnym wyrównaniu histogramu
-        self.show_frame(result, "Obraz po delikatnym wyrównaniu histogramu")
+        self.show_frame(result, "")
 
         # 5. Rejestracja obrazu (alignment) - fiduciale (bez zmian, to potrzebna funkcjonalność)
         if hasattr(self, 'fiducial_detector'):
@@ -1207,13 +1299,13 @@ class Camera(QDialog):
         denoised = cv2.bilateralFilter(image, d=3, sigmaColor=15, sigmaSpace=15)
         
         # Pokaż obraz po odszumianiu
-        self.show_frame(denoised, "Obraz po delikatnym odszumianiu")
+        self.show_frame(denoised, "")
         
         # 3. Delikatna poprawa kontrastu i jasności
         adjusted = cv2.convertScaleAbs(denoised, alpha=1.05, beta=3)
         
         # Pokaż obraz po delikatnej poprawie kontrastu
-        self.show_frame(adjusted, "Obraz po delikatnej poprawie kontrastu")
+        self.show_frame(adjusted, "")
         
         # 4. Bardzo subtelne wyrównanie histogramu tylko na kanale jasności
         hsv = cv2.cvtColor(adjusted, cv2.COLOR_BGR2HSV)
@@ -1225,7 +1317,7 @@ class Camera(QDialog):
         result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
         
         # Pokaż obraz po delikatnym wyrównaniu histogramu
-        self.show_frame(result, "Obraz po delikatnym wyrównaniu histogramu")
+        self.show_frame(result, "")
 
         # 5. Rejestracja obrazu (alignment) - fiduciale (bez zmian, to potrzebna funkcjonalność)
         if hasattr(self, 'fiducial_detector'):
@@ -1422,7 +1514,7 @@ class Camera(QDialog):
             frame = original_frame
             
             # Dodaj informację, że analiza jest wyłączona
-            cv2.putText(frame, "Analiza wyłączona - kliknij 'Analiza' aby rozpocząć",
+            cv2.putText(frame, "",
                         (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
         # Wyświetlanie obrazu za pomocą metody show_frame
@@ -1479,7 +1571,7 @@ class Camera(QDialog):
             if hasattr(self, 'detection_result') and self.detection_result is not None:
                 # Użyj zapisanego obrazu z boxami
                 display_frame = self.frozen_frame.copy()
-                self.show_frame(display_frame, "Obraz z detekcją")
+                self.show_frame(display_frame, "")
                 self.show_preprocessing_btn.setText("Pokaż preprocessing")
             else:
                 # Jeśli nie mamy zapisanego obrazu z boxami, narysuj je na preprocessed
@@ -1490,12 +1582,12 @@ class Camera(QDialog):
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
                     cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
-                self.show_frame(display_frame, "Obraz z detekcją")
+                self.show_frame(display_frame, "")
                 self.show_preprocessing_btn.setText("Pokaż preprocessing")
         else:
             # Jeśli pokazujemy obraz z boxami, przełącz na czysty preprocessed
             preprocessed_view = self.preprocessed_frame.copy()
-            self.show_frame(preprocessed_view, "Obraz po preprocessingu")
+            self.show_frame(preprocessed_view, "")
             self.show_preprocessing_btn.setText("Pokaż detekcję")
             
         self.preprocessing_visible = not self.preprocessing_visible
@@ -1575,75 +1667,70 @@ class Camera(QDialog):
         self.save_button.setEnabled(len(self.bboxes) > 0)
 
     def highlight_bbox(self, item):
-        """Zmienia kolor bounding boxa po kliknięciu w ID na liście"""
-        clicked_id = item.text()  # Pobieramy ID
-        print(f"Wybrano element: {clicked_id}")
-
-        updated = False  # Flaga sprawdzająca, czy znaleziono ID
-        for bbox in self.bboxes:
-            if bbox["id"] == clicked_id:
-                bbox["color"] = (255, 0, 0)  # Zmień kolor na czerwony
-                updated = True
-                print(f"Znaleziono i wyróżniono bbox: {bbox['bbox']}")
-            else:
-                bbox["color"] = (0, 255, 0)  # Kolor zielony dla pozostałych
-
-        if updated:
-            if self.cap is not None and self.cap.isOpened() and not self.frozen:
-                # Jeśli mamy aktywną kamerę i nie jest zamrożona, trigger aktualizację
-                self.update_frame()
-            elif self.frozen and self.preprocessed_frame is not None:
-                # Jeśli mamy statyczny obraz, aktualizujemy go ręcznie
-                # Pobierz przetworzony obraz bez boxów
-                display_frame = self.preprocessed_frame.copy()
-                
-                # Aktualizujemy frozen_bboxes
-                self.frozen_bboxes = self.bboxes.copy()
-                
-                # Rysowanie bounding boxów na obrazie
+        """Podświetla wybrany bounding box na obrazie"""
+        if not self.frozen_frame is None:
+            # Kopiuj oryginalną ramkę
+            display_frame = self.frozen_frame.copy()
+            
+            # Znajdź wybrany element
+            selected_id = item.text()
+            
+            # Znajdź odpowiadający box
+            selected_bbox = None
+            for bbox in self.frozen_bboxes:
+                if bbox["id"] == selected_id:
+                    selected_bbox = bbox
+                    break
+            
+            if selected_bbox:
+                # Rysuj wszystkie boxy, ale utwórz specjalny styl dla wybranego
                 for bbox in self.frozen_bboxes:
                     x1, y1, x2, y2 = bbox["bbox"]
-                    color = bbox["color"]
-                    # Zwiększono grubość ramki dla lepszej widoczności
-                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 4)
-                    # Etykieta z ID
+                    
+                    # Określ kolor i grubość linii
+                    if bbox["id"] == selected_id:
+                        color = (0, 0, 255)  # Czerwony dla wybranego
+                        thickness = 4
+                    else:
+                        color = bbox["color"]
+                        thickness = 2
+                    
+                    # Rysuj prostokąt
+                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, thickness)
+                    
+                    # Rysuj etykietę
                     cv2.putText(display_frame, bbox["id"], (x1, y1-10), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
-                
-                # Zapisz zaktualizowaną klatkę
-                self.frozen_frame = display_frame.copy()
-                
-                # Wyświetl zaktualizowany obraz
-                self.show_frame(display_frame, "Komponent podświetlony")
-                print("Zaktualizowano wyświetlanie statycznego obrazu")
-                
-            self.cap_label.repaint()  # Wymuś ponowne narysowanie
+            
+            # Wyświetl ramkę z podświetlonym boxem
+            self.show_frame(display_frame, "")
 
     def closeEvent(self, event):
-        """Zamykanie aplikacji i bazy danych"""
-        self.stop_camera()
-        if hasattr(self, 'conn'):
-            self.conn.close()
-        event.accept()
-
+        """Zamknięcie okna"""
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
+        
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
+            
+        super().closeEvent(event)
+        
     def toggle_mirror(self):
-        """Przełącza stan odbicia lustrzanego dla znaczników POS"""
+        """Przełącza stan odbicia lustrzanego obrazu"""
         self.is_mirrored = not self.is_mirrored
         
-        # Aktualizuj etykietę przycisku
+        # Zastosuj zmiany do aktualnie wyświetlanego obrazu
+        if self.frozen:
+            if self.frozen_frame is not None:
+                if self.is_mirrored:
+                    self.frozen_frame = cv2.flip(self.frozen_frame, 1)  # 1 oznacza odbicie poziome
+                self.show_frame(self.frozen_frame, "")
+                
+        # Aktualizuj stan przycisku
         if self.is_mirrored:
-            self.mirror_button.setText("wyłącz odbicie znaczników")
+            self.mirror_button.setStyleSheet("background-color: #4b7bec; color: white;")
         else:
-            self.mirror_button.setText("odbicie znaczników")
-            
-        # Jeśli mamy nałożone markery POS, ponownie nałóż je z uwzględnieniem odbicia
-        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None and hasattr(self, 'pos_file_path'):
-            # Ponowne nałożenie markerów POS z nowym ustawieniem odbicia
-            self.overlay_pos_markers(self.preprocessed_frame, self.pos_file_path, self.cap_label.width(), self.cap_label.height())
-            
-            # Jeśli mamy zamrożoną klatkę, odświeżamy ją
-            if self.frozen and self.frozen_frame is not None:
-                self.show_frame(self.overlayed_frame)
+            self.mirror_button.setStyleSheet("")
 
     def on_pos_file_click(self):
         """Obsługa kliknięcia przycisku wyboru pliku POS"""
@@ -1693,6 +1780,10 @@ class Camera(QDialog):
         # Zmień tekst przycisku i wyłącz go na czas analizy
         self.analyze_all_button.setText("Analizowanie...")
         self.analyze_all_button.setEnabled(False)
+        
+        # Pokaż nakładkę ładowania
+        self.loading_overlay = LoadingOverlay(self)
+        self.loading_overlay.show()
         
         # Lista wszystkich modeli do przetworzenia
         components = list(self.model_paths.keys())
@@ -1761,6 +1852,14 @@ class Camera(QDialog):
         if all_finished:
             self.check_workers_timer.stop()
             
+            # Ukryj i usuń nakładkę ładowania
+            if hasattr(self, 'loading_overlay') and self.loading_overlay:
+                self.loading_overlay.animation_timer.stop()
+                self.loading_overlay.animation_group.stop()
+                self.loading_overlay.hide()
+                self.loading_overlay.deleteLater()
+                self.loading_overlay = None
+            
             # Aktualizuj UI z wynikami
             self.process_all_detections()
             
@@ -1797,7 +1896,7 @@ class Camera(QDialog):
         self.frozen_bboxes = self.bboxes.copy()
         
         # Wyświetl zaktualizowany obraz
-        self.show_frame(display_frame, "Wykryte komponenty wszystkich typów")
+        self.show_frame(display_frame, "")
         
         # Aktywuj przycisk zapisu
         self.save_button.setEnabled(True)
@@ -1853,3 +1952,4 @@ class Camera(QDialog):
         
         # Aktywuj przycisk zapisu jeśli są wykryte komponenty
         self.save_button.setEnabled(len(self.bboxes) > 0)
+
