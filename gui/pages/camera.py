@@ -18,6 +18,10 @@ from datetime import datetime
 from db_config import DB_CONFIG
 import concurrent.futures
 import time
+from datetime import datetime
+import easyocr
+from .ocr_components import ComponentProcessing
+
 
 class LoadingOverlay(QWidget):
     """Widżet nakładki z animowanym wskaźnikiem ładowania"""
@@ -115,13 +119,15 @@ class DetectionWorker(QThread):
     """Klasa do wykonywania detekcji w osobnym wątku"""
     finished = pyqtSignal(object, str)  # Sygnał wysyłany po zakończeniu detekcji (wyniki, nazwa_komponentu)
     
-    def __init__(self, model, frame, component_name, confidence_threshold, device):
+    def __init__(self, model, frame, component_name, confidence_threshold, device, output_dir, component_counter):
         super().__init__()
         self.model = model
         self.frame = frame
         self.component_name = component_name
         self.confidence_threshold = confidence_threshold
         self.device = device
+        self.output_dir = output_dir
+        self.component_counter = component_counter
         
     def run(self):
         try:
@@ -144,12 +150,18 @@ class DetectionWorker(QThread):
                 if score > self.confidence_threshold:
                     count += 1
                     x1, y1, x2, y2 = map(int, box.cpu().numpy())
+                    component_id = f"{self.component_name}_{count}"
                     detections.append({
-                        "id": f"{self.component_name}:{count}|Score: {score.item():.2f}", 
+                        "id": component_id, 
                         "bbox": (x1, y1, x2, y2), 
                         "score": float(score.item()),
                         "component_type": self.component_name
                     })
+
+                    # Zapisz wycinek komponentu
+                    crop = self.frame[y1:y2, x1:x2]
+                    crop_filename = os.path.join(self.output_dir, f"{component_id}.png")
+                    cv2.imwrite(crop_filename, crop)
             
             # Emituj sygnał z wynikami
             self.finished.emit(detections, self.component_name)
@@ -169,6 +181,8 @@ class Camera(QDialog):
         self.cap_label = self.findChild(QLabel, "cap")
         self.bboxes = []  # Inicjalizacja listy wykrytych obiektów
         self.component_list.itemClicked.connect(self.highlight_bbox)
+        self.component_counter = 1
+
         
         # Podłączenie przycisku zapisu
         self.save_button.clicked.connect(self.save_pcb_data)
@@ -187,13 +201,13 @@ class Camera(QDialog):
         
         self.model_paths = {
             "Kondensator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/capacitors.pth")),
-            "Układ scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/ic.pth")),
-            "Dioda": os.path.abspath(os.path.join(os.path.dirname(__file__), "../../ml/models/dioda_model_epoch_14_mAP_0.822.pth")),
+            "Uklad scalony": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/ic.pth")),
+            "Dioda": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/dioda_model_epoch_14_mAP_0.822.pth")),
             "USB": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/usb.pth")),
             "Rezonator": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/resonator.pth")),
             "Rezystor": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/resistor.pth")),
             "Przycisk": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/switch.pth")),
-            "Złącze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/connectors.pth")),
+            "Zlacze": os.path.abspath(os.path.join(os.path.dirname(__file__), "../models/trained/connectors.pth")),
         }
 
         self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
@@ -253,13 +267,13 @@ class Camera(QDialog):
 
         self.confidence_thresholds = {
             "Kondensator": 0.9,
-            "Układ scalony": 0.90,
+            "Uklad scalony": 0.90,
             "Dioda": 0.55,
             "USB": 0.8,
             "Rezonator": 0.8,
             "Rezystor": 0.5,
             "Przycisk": 0.6,
-            "Złącze": 0.75,
+            "Zlacze": 0.75,
         }
 
         # Nowa lista do przechowywania wszystkich detekcji ze wszystkich modeli
@@ -607,28 +621,37 @@ class Camera(QDialog):
         confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
         print(f"Liczba wykrytych obiektów przed filtrowaniem: {len(predictions['boxes'])}")
 
-        for box, score, label in zip(predictions["boxes"], predictions["scores"], predictions["labels"]):
+                # Zapisz wszystko do jednego folderu
+        base_output_dir = "output_components"
+        os.makedirs(base_output_dir, exist_ok=True)
+
+
+        for idx, (box, score, label) in enumerate(zip(predictions["boxes"], predictions["scores"], predictions["labels"])):
             if score > confidence_threshold:
                 count += 1
-                # Konwersja koordynatów na inty
                 x1, y1, x2, y2 = map(int, box.cpu().numpy())
-                component_name = self.component.currentText()
+                component_id = f"{component_name}"
                 detections.append({
-                    "id": f"{component_name}:{count}|Score: {score.item():.2f}", 
-                    "bbox": (x1, y1, x2, y2), 
+                    "id": component_id,
+                    "bbox": (x1, y1, x2, y2),
                     "score": float(score.item())
                 })
 
+                # Zapisz wycinek komponentu
+                crop = frame[y1:y2, x1:x2]
+                crop_filename = os.path.join(base_output_dir, f"{component_id}.png")
+                cv2.imwrite(crop_filename, crop)
+
         self.count_elements.setText(f"{count}")
         print(f"Liczba wykrytych obiektów po filtrowaniu (próg={confidence_threshold}): {count}")
-        
-        # Dodaję boxów do oryginalnego obrazu dla lepszej wizualizacji 
-        # Zwiększono grubość linii z 2 na 4
+        print(f"Wycinki zapisano do folderu: {base_output_dir}")
+
+        # Dodaj prostokąty do obrazu
         result_frame = frame.copy()
         for det in detections:
             x1, y1, x2, y2 = det["bbox"]
             cv2.rectangle(result_frame, (x1, y1), (x2, y2), (0, 255, 0), 4)
-            
+
         return result_frame, detections
 
     def run_preprocessing(self):
@@ -1819,12 +1842,17 @@ class Camera(QDialog):
         # Utwórz wątki dla każdego modelu
         self.workers = []
         for model_info in models_to_process:
+            output_dir = "output_components"
+            os.makedirs(output_dir, exist_ok=True)
+
             worker = DetectionWorker(
                 model_info['model'],
                 analyze_frame,
                 model_info['component_name'],
                 model_info['confidence_threshold'],
-                self.device
+                self.device,
+                output_dir,
+                self.component_counter,
             )
             worker.finished.connect(self.handle_detection_results)
             self.workers.append(worker)
@@ -1849,6 +1877,7 @@ class Camera(QDialog):
         """Sprawdza stan wszystkich wątków detekcji i aktualizuje UI po zakończeniu"""
         all_finished = all(not worker.isRunning() for worker in self.workers)
         
+
         if all_finished:
             self.check_workers_timer.stop()
             
@@ -1860,9 +1889,18 @@ class Camera(QDialog):
                 self.loading_overlay.deleteLater()
                 self.loading_overlay = None
             
-            # Aktualizuj UI z wynikami
+            # 🔁 Najpierw OCR – musi być przed `process_all_detections()`
+            processor = ComponentProcessing(
+                input_root="output_components",
+                preprocessed_output_root="preprocessed_rot_components",
+                output_best_txt="recognized_best_components.txt",
+                output_all_txt="recognized_all_rotations.txt"
+            )
+            processor.process_components()
+
+            # 🧠 Dopiero teraz aktualizuj interfejs (który używa wyników OCR)
             self.process_all_detections()
-            
+
             # Zresetuj stan
             self.workers = []
             self.analyze_all_button.setText("Analizuj wszystko")
@@ -1905,51 +1943,74 @@ class Camera(QDialog):
         print(f"Łącznie wykryto {len(self.bboxes)} komponentów")
         QMessageBox.information(self, "Informacja", f"Wykryto {len(self.bboxes)} komponentów różnych typów")
 
+    
     def update_component_list(self, detections):
-        """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów"""
-        self.component_list.clear()  # Czyści starą listę
-        self.bboxes = []  # Lista boxów
+        """Aktualizuje listę ID komponentów na podstawie wykrytych obiektów i wyników OCR"""
+        self.component_list.clear()
+        self.bboxes = []
 
         print(f"Otrzymano {len(detections)} detekcji do aktualizacji listy")
-        
-        # Dla analizy wszystkich komponentów może być potrzebne przetworzenie
-        # detections w różny sposób w zależności od formatu
+
+        recognized_txt = "recognized_best_components.txt"
+
+        # Wczytaj wyniki OCR do słownika: {"Kondensator_1.png": ("tekst", "90")}
+        recognized_map = {}
+        if os.path.exists(recognized_txt):
+            with open(recognized_txt, "r", encoding="utf-8") as f:
+                for line in f:
+                    if ": [" in line and "] -> " in line:
+                        try:
+                            filename_part, rest = line.strip().split(": [")
+                            angle_part, text = rest.split("] -> ")
+                            recognized_map[filename_part.strip()] = (text.strip(), angle_part.strip("°"))
+                        except ValueError:
+                            continue
+
+        # Grupowanie OCR po typie komponentu: {"Kondensator": [(text, angle), ...]}
+        grouped_ocr = {}
+        for filename, (text, angle) in recognized_map.items():
+            if "_" in filename:
+                component_type = filename.rsplit("_", 1)[0]
+                grouped_ocr.setdefault(component_type, []).append((text, angle))
+
+        # Licznik dla każdego typu komponentu
+        component_counters = {}
+
         if isinstance(detections, list) and detections and isinstance(detections[0], dict):
-            # Lista słowników, standardowy format
-            for i, detection in enumerate(detections):
-                x1, y1, x2, y2 = detection["bbox"]
+            for detection in detections:
+                x1, y1, x2, y2 = map(int, detection["bbox"])
                 component_type = detection.get("component_type", "Nieznany")
-                id_ = f"{component_type}:{i+1}|Score: {detection['score']:.2f}"
-                self.component_list.addItem(id_)
+
+                index = component_counters.get(component_type, 0)
+                ocr_list = grouped_ocr.get(component_type, [])
+
+                if index < len(ocr_list):
+                    ocr_text, best_angle = ocr_list[index]
+                else:
+                    ocr_text, best_angle = "(brak OCR)", "-"
+
+                component_counters[component_type] = index + 1
+
+                display_text = f"{component_type} ({ocr_text}): score {detection['score']:.2f}"
+                self.component_list.addItem(display_text)
+
                 self.bboxes.append({
-                    "id": id_, 
-                    "bbox": (x1, y1, x2, y2), 
-                    "color": (0, 255, 0), 
+                    "id": f"{component_type}_{index + 1}",
+                    "bbox": (x1, y1, x2, y2),
+                    "color": (0, 255, 0),
                     "score": detection["score"],
                     "component_type": component_type
                 })
-        elif isinstance(detections, list) and detections and isinstance(detections[0], tuple):
-            # Lista krotek (detekcje, nazwa_komponentu), format z analizy wszystkich
-            for det_tuple in detections:
-                if len(det_tuple) == 2 and isinstance(det_tuple[0], list):
-                    dets, component_type = det_tuple
-                    for i, det in enumerate(dets):
-                        x1, y1, x2, y2 = det["bbox"]
-                        id_ = f"{component_type}:{i+1}|Score: {det['score']:.2f}"
-                        self.component_list.addItem(id_)
-                        self.bboxes.append({
-                            "id": id_, 
-                            "bbox": (x1, y1, x2, y2), 
-                            "color": (0, 255, 0), 
-                            "score": det["score"],
-                            "component_type": component_type
-                        })
+
+                print(f"{component_type}_{index + 1}: OCR -> {ocr_text} (angle: {best_angle}°)")
+
         else:
-            # Nieznany format lub pusta lista
-            print(f"Nieznany format detekcji lub pusta lista")
-        
+            print("Nieznany format detekcji lub pusta lista")
+
         print(f"Zaktualizowano listę komponentów, dodano {len(self.bboxes)} elementów")
-        
-        # Aktywuj przycisk zapisu jeśli są wykryte komponenty
         self.save_button.setEnabled(len(self.bboxes) > 0)
+
+
+
+
 
