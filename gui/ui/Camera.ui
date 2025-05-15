@@ -570,6 +570,30 @@ QToolTip {
            </layout>
           </item>
           <item>
+           <layout class="QHBoxLayout" name="compareAllLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="comparision_button">
+              <property name="text">
+               <string>Porownanie komponentow</string>
+              </property>
+              <property name="toolTip">
+               <string>Porownaj czy komponenty wykryte w modelu pasuja do pozycji pos</string>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">
+                background-color: #7289da; 
+                color: white;
+                font-weight: 500;
+               </string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
            <layout class="QHBoxLayout" name="preprocessingLayout">
             <property name="spacing">
              <number>8</number>

@@ -233,6 +233,8 @@ class Camera(QDialog):
         self.clear_image_button.clicked.connect(self.clear_image)
         self.pos_file.clicked.connect(self.on_pos_file_click)
         self.mirror_button.clicked.connect(self.toggle_mirror)
+        self.comparision_button.clicked.connect(self.on_comparision_click)
+        
 
 
 
@@ -1419,7 +1421,6 @@ class Camera(QDialog):
         print(f"Skala: {scale_x} x {scale_y}")
         print(f"Marginesy: {self.margin_x} x {self.margin_y}")
 
-
         # Kopia obrazu do rysowania
         result = self.preprocessed_frame.copy()
 
@@ -1450,6 +1451,16 @@ class Camera(QDialog):
                 # Rysowanie punktu na obrazie
                 cv2.circle(result, (pixel_x, pixel_y), 8, (0, 0, 255), -1)
 
+                # Powiększenie rozmiaru bbox o 2.5 razy
+                bbox_size = 12 * 2.5  # Powiększenie rozmiaru o 2.5 razy
+                bbox_half_size = int(bbox_size / 2)
+
+                # Rysowanie powiększonego bounding boxa wokół punktu
+                cv2.rectangle(result, 
+                              (pixel_x - bbox_half_size, pixel_y - bbox_half_size), 
+                              (pixel_x + bbox_half_size, pixel_y + bbox_half_size), 
+                              (0, 255, 0), 2)  # Bbox w kolorze zielonym
+
                 # Opcjonalnie: Rysowanie napisu 'Ref' obok punktu
                 cv2.putText(result, ref, (pixel_x + 8, pixel_y - 5), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1, cv2.LINE_AA)
@@ -1459,7 +1470,237 @@ class Camera(QDialog):
         self.overlayed_frame = result.copy()
         self.show_frame(result, "Obraz z nałożonymi markerami POS")
 
+    
+    def bbox_matches_pos(self, preprocessed_frame, pos_file_path, target_width, target_height, pcb_width_mm=43.18, pcb_height_mm=17.78):
+        """
+        Nakłada same bboxy z pliku POS na obraz płytki PCB i zapisuje je do self.pos_bboxes.
+        """
+        # 🧩 Mapowanie nazw z POS na klasy modelowe
+        component_name_map = {
+            "J1": "Zlacze",
+            "J2": "Zlacze",
+            "J3": "Zlacze",
+            "J4": "Zlacze",
+            "SW1": "Przycisk",
+            "IC3": "Uklad scalony",
+            "U$4": "Uklad scalony",
+            "U$5": "Uklad scalony",
+            "Y1": "Rezonator",
+            "D+0": "USB",
+            "D-0": "USB",
+            "RX0": "USB",
+            "TX0": "USB",
+            "L0": "Rezystor",
+            "PWR0": "Rezystor",
+            "FRAME1": "Rezystor",
+            "UNK_HOLE_0": "Zlacze",
+            "UNK_HOLE_1": "Zlacze",
+            "UNK_HOLE_2": "Zlacze",
+            "UNK_HOLE_3": "Zlacze"
+        }
 
+        self.pos_file_path = pos_file_path
+        self.load_and_preprocess_image(preprocessed_frame)
+
+        print("Rozpoczynam nakładanie bboxów z POS...")
+        print(f"Rozmiar płytki: {pcb_width_mm} mm x {pcb_height_mm} mm")
+        print(f"Rozmiar okna: {target_width} x {target_height} pikseli")
+
+        resized_h, resized_w, _ = self.preprocessed_frame.shape
+        scale_x = resized_w / pcb_width_mm
+        scale_y = resized_h / pcb_height_mm
+
+        print(f"Skala: {scale_x} x {scale_y}")
+        print(f"Marginesy: {self.margin_x} x {self.margin_y}")
+
+        result = self.preprocessed_frame.copy()
+        self.pos_bboxes = []  # <----- 🆕 Lista bboxów z POS
+
+        with open(pos_file_path, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                try:
+                    pos_x_mm = float(row["PosX"]) - 126.873
+                    pos_y_mm = float(row["PosY"]) + 96.114
+                    ref = row["Ref"]
+                    print(f"Wartości z POS: {ref} ({pos_x_mm}, {pos_y_mm})")
+                except (ValueError, KeyError):
+                    continue
+
+                # 🧠 Mapowanie ref na kategorię komponentu
+                mapped_component = component_name_map.get(ref, ref)
+
+                if self.is_mirrored:
+                    pixel_x = int((pcb_width_mm - pos_x_mm) * scale_x)
+                    print(f"Stosowanie odbicia lustrzanego dla POS {ref}")
+                else:
+                    pixel_x = int(pos_x_mm * scale_x)
+
+                pixel_y = int(-(pos_y_mm) * scale_y)
+                print(f"Współrzędne w pikselach dla {ref}: ({pixel_x}, {pixel_y})")
+
+                bbox_size = 12 * 2.5
+                bbox_half_size = int(bbox_size / 2)
+
+                top_left = (pixel_x - bbox_half_size, pixel_y - bbox_half_size)
+                bottom_right = (pixel_x + bbox_half_size, pixel_y + bbox_half_size)
+
+                # 🟩 Rysuj bbox
+                cv2.rectangle(result, top_left, bottom_right, (0, 255, 0), 2)
+                cv2.putText(result, ref, (pixel_x + 8, pixel_y - 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1, cv2.LINE_AA)
+
+                # 🧠 Zapisz bbox do listy
+                self.pos_bboxes.append({
+                    'component': mapped_component,
+                    'x': top_left[0],
+                    'y': top_left[1],
+                    'w': bbox_half_size * 2,
+                    'h': bbox_half_size * 2
+                })
+
+        print(f"POS bboxes załadowane: {[b['component'] for b in self.pos_bboxes]}")
+
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+
+        if hasattr(self, 'workers') and self.workers:
+            QMessageBox.warning(self, "Uwaga", "Analiza jest już w toku!")
+            return
+
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            analyze_frame = self.overlayed_frame.copy()
+        else:
+            analyze_frame = self.preprocessed_frame.copy()
+
+        self.analyze_all_button.setText("Analizowanie...")
+        self.analyze_all_button.setEnabled(False)
+
+        self.loading_overlay = LoadingOverlay(self)
+        self.loading_overlay.show()
+
+        components = list(self.model_paths.keys())
+        models_to_process = []
+
+        for component_name in components:
+            model_path = self.model_paths[component_name]
+            confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
+
+            try:
+                model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(state_dict)
+                model.to(self.device)
+                model.eval()
+
+                models_to_process.append({
+                    'model': model,
+                    'component_name': component_name,
+                    'confidence_threshold': confidence_threshold
+                })
+
+            except Exception as e:
+                print(f"Błąd podczas ładowania modelu {component_name}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        self.all_detections = []
+        self.bboxes = []
+        self.workers = []
+
+        for model_info in models_to_process:
+            output_dir = "output_components"
+            os.makedirs(output_dir, exist_ok=True)
+
+            worker = DetectionWorker(
+                model_info['model'],
+                analyze_frame,
+                model_info['component_name'],
+                model_info['confidence_threshold'],
+                self.device,
+                output_dir,
+                self.component_counter,
+            )
+            worker.finished.connect(self.handle_detection_results)
+            self.workers.append(worker)
+            worker.start()
+
+        self.check_workers_timer = QTimer()
+        self.check_workers_timer.timeout.connect(self.check_workers_compare)
+        self.check_workers_timer.start(1000)
+
+        self.pos_putted_on = True
+        self.overlayed_frame = result.copy()
+        self.show_frame(result, "Obraz z nałożonymi bboxami POS")
+
+
+    def porownaj_bboxy(self):
+        if not hasattr(self, 'model_bboxes') or not hasattr(self, 'pos_bboxes'):
+            QMessageBox.warning(self, "Błąd", "Brakuje danych do porównania.")
+            return
+
+        name_map = {
+            "usb": "USB",
+            "rezystor": "Rezystor",
+            "kondensator": "Kondensator",
+            "zlacze": "Zlacze",
+            "uklad scalony": "Uklad scalony",
+            "przycisk": "Przycisk",
+            "rezonator": "Rezonator",
+        }
+
+        dopasowane = []
+        niedopasowane_model = []
+        niedopasowane_pos = self.pos_bboxes.copy()
+
+        def point_in_bbox(point, bbox):
+            px, py = point
+            bx, by, bw, bh = bbox['x'], bbox['y'], bbox['w'], bbox['h']
+            return bx <= px <= bx + bw and by <= py <= by + bh
+
+        for model_box in self.model_bboxes:
+            matched = False
+            model_name = model_box['component'].strip().lower()
+
+            for pos_box in self.pos_bboxes:
+                pos_name = pos_box['component'].strip().lower()
+                mapped_pos_name = name_map.get(pos_name, pos_name)
+
+                if model_name != mapped_pos_name.lower():
+                    continue
+
+                # Obliczamy środek POS bbox
+                pos_center = (pos_box['x'] + pos_box['w'] / 2, pos_box['y'] + pos_box['h'] / 2)
+
+                if point_in_bbox(pos_center, model_box):
+                    dopasowane.append((model_box, pos_box))
+                    if pos_box in niedopasowane_pos:
+                        niedopasowane_pos.remove(pos_box)
+                    matched = True
+                    break
+
+            if not matched:
+                niedopasowane_model.append(model_box)
+
+        # Wyniki:
+        print(f"Dopasowane bboxy ({len(dopasowane)}):")
+        for i, (model_box, pos_box) in enumerate(dopasowane):
+            print(f"{i+1}. Model={model_box['component']} | POS={pos_box['component']}")
+
+        print(f"\nNiedopasowane bboxy z modelu ({len(niedopasowane_model)}):")
+        for box in niedopasowane_model:
+            print(f"- {box['component']}")
+
+        print(f"\nNiedopasowane bboxy z POS ({len(niedopasowane_pos)}):")
+        for box in niedopasowane_pos:
+            print(f"- {box['component']}")
+
+        QMessageBox.information(self, "Porównanie bboxów",
+            f"Dopasowania: {len(dopasowane)}\n"
+            f"Niedopasowane (model): {len(niedopasowane_model)}\n"
+            f"Niedopasowane (POS): {len(niedopasowane_pos)}"
+        )
 
     def update_frame(self):
         # Jeżeli analiza dotyczy statycznego obrazu, to nie próbujemy pobierać klatek z kamery
@@ -1782,6 +2023,8 @@ class Camera(QDialog):
             )
         except Exception as e:
             QMessageBox.critical(self, "Błąd", f"Nie udało się nałożyć markerów POS: {str(e)}")
+    
+        
 
     def analyze_all_components(self):
         """Analizuje wszystkie typy komponentów jednocześnie na obrazie"""
@@ -1860,18 +2103,83 @@ class Camera(QDialog):
         
         # Uruchom timer sprawdzający stan wszystkich wątków
         self.check_workers_timer = QTimer()
-        self.check_workers_timer.timeout.connect(self.check_workers_status)
+        self.check_workers_timer.timeout.connect(self.check_workers_compare)
         self.check_workers_timer.start(1000)  # Sprawdzaj co 1 sekundę
+
+    def on_comparision_click(self):
+        """Obsługa kliknięcia przycisku wyboru pliku POS"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+            
+        # Wyświetl dialog wyboru pliku
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz plik POS", "", 
+            "Pliki CSV (*.csv);;Wszystkie pliki (*)", 
+            options=options
+        )
+        
+        if not file_name:
+            return
+            
+        try:
+            # Nałóż markery POS na obraz
+            self.bbox_matches_pos(
+                self.preprocessed_frame,
+                file_name,
+                self.cap_label.width(),
+                self.cap_label.height()
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Nie udało się nałożyć markerów POS: {str(e)}")
+
+        #self.analyze_all_components()
+        
     
     def handle_detection_results(self, detections, component_name):
         """Obsługuje wyniki detekcji z wątku DetectionWorker"""
+
         if detections:
             print(f"Otrzymano {len(detections)} detekcji dla komponentu {component_name}")
-            # Dodaj detekcje do listy wszystkich detekcji
+
+            if not hasattr(self, 'model_bboxes'):
+                self.model_bboxes = []
+
             for det in detections:
                 self.all_detections.append(det)
+
+                x1, y1, x2, y2 = det['bbox']
+                confidence = det.get('confidence', 0.0)
+                width = x2 - x1
+                height = y2 - y1
+
+                self.model_bboxes.append({
+                    'component': component_name,
+                    'x': x1,
+                    'y': y1,
+                    'w': width,
+                    'h': height,
+                    'confidence': confidence
+                })
+
+                # 🟥 Rysowanie bboxów modelu na overlayed_frame
+                if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+                    cv2.rectangle(self.overlayed_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(self.overlayed_frame, component_name, (x1, y1 - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+
+                # Wypisz nazwę komponentu i jego wymiary bboxa
+                print(f" - {component_name}: x={x1}, y={y1}, w={width}, h={height}, confidence={confidence:.2f}")
+
+            # Po narysowaniu nowych bboxów odśwież widok:
+            self.show_frame(self.overlayed_frame, "Obraz z wykrytymi komponentami (model)")
+            print(f"Model bboxes aktualnie zapisane: {[b['component'] for b in self.model_bboxes]}")
         else:
             print(f"Brak detekcji dla komponentu {component_name}")
+
+
+
     
     def check_workers_status(self):
         """Sprawdza stan wszystkich wątków detekcji i aktualizuje UI po zakończeniu"""
@@ -1905,6 +2213,23 @@ class Camera(QDialog):
             self.workers = []
             self.analyze_all_button.setText("Analizuj wszystko")
             self.analyze_all_button.setEnabled(True)
+    
+    def check_workers_compare(self):
+        all_done = all(not worker.isRunning() for worker in self.workers)
+
+        if all_done:
+            self.check_workers_timer.stop()
+            self.analyze_all_button.setEnabled(True)
+            self.analyze_all_button.setText("Analizuj wszystkie")
+
+            if hasattr(self, 'loading_overlay'):
+                self.loading_overlay.close()
+
+            print("Wszystkie detekcje zakończone.")
+            self.model_bboxes = self.bboxes  # 🧠 <- zapisz bboxy modelu do porównania
+
+            # 🆕 Porównaj bboxy z POS i detekcji modelu
+            self.porownaj_bboxy()
     
     def process_all_detections(self):
         """Przetwarza wszystkie detekcje i aktualizuje UI"""
