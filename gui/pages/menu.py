@@ -16,6 +16,29 @@ class MainWindow(QMainWindow):
         self.user_id = user_id
         self.widget = widget
 
+        self.mainToolBar.setAutoFillBackground(True)
+        self.mainToolBar.setStyleSheet("""
+    QToolBar {
+        background-color: #2A2D31;
+        spacing: 8px;
+        padding: 6px;
+        border: none;
+    }
+    QToolButton {
+        color: white;
+        background-color: transparent;
+        border: none;
+        padding: 6px;
+    }
+    QToolButton:hover {
+        background-color: #353A41;
+    }
+    QToolButton:checked {
+        background-color: #353A41;
+    }
+    """)
+        
+
         # Dodanie widżetów do stackedWidget z zapisaniem ich indeksów
         self.index_reports = self.stackedWidget.addWidget(Reports(user_id=self.user_id))
         self.index_camera = self.stackedWidget.addWidget(Camera())

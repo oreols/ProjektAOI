@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>AccountDialog</class>
- <widget class="QDialog" name="AccountDialog">
+ <class>Account</class>
+ <widget class="QDialog" name="Account">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -16,26 +16,26 @@
   <property name="styleSheet">
    <string notr="true">
 /* --- Styl Zarządzania Użytkownikami --- */
-QDialog#AccountDialog {
+QDialog#Account {
     background-color: #2f3136; /* Główne tło */
     color: #e8e9ea;
     font-family: &quot;Segoe UI&quot;, Roboto, Cantarell, &quot;Helvetica Neue&quot;, sans-serif;
     font-size: 14px;
 }
 
-/* --- Górny i Dolny Pasek --- */
-QFrame#topToolbar, QFrame#bottomBar {
-    background-color: #2f3136; /* Tło pasków */
-    border: none; /* Bez zaokrągleń i ramek dla pasków */
+/* --- Górny Pasek --- */
+QFrame#topToolbar {
+    background-color: #36393f; /* Tło pasków */
+    border: none;
     padding: 0;
     min-height: 50px;
     max-height: 50px;
+    border-radius: 8px;
+    border: 1px solid #202225;
 }
-QFrame#topToolbar { border-bottom: 1px solid #202225; }
-QFrame#bottomBar { border-top: 1px solid #202225; }
 
 /* Layouty wewnątrz pasków */
-#topToolbar QHBoxLayout, #bottomBar QHBoxLayout {
+#topToolbar QHBoxLayout {
     spacing: 15px;
     margin: 0px 20px; /* Marginesy L/R dla zawartości */
 }
@@ -46,62 +46,57 @@ QLabel#titleLabel {
     background-color: transparent;
 }
 
-/* --- Tabela --- */
-QTableWidget#tableWidget {
-    background-color: #36393f; /* Tło jak paski */
-    border: 1px solid #202225; /* Subtelna ramka */
-    border-radius: 8px; /* --- ZAOKRĄGLENIE ROGÓW --- */
-    gridline-color: #40444b;
+/* --- ScrollArea dla listy użytkowników --- */
+QScrollArea#userListScrollArea {
+    background-color: #2f3136; /* Tło spójne z dialogiem */
+    border-radius: 8px;
+}
+
+/* Widget wewnątrz ScrollArea */
+QWidget#scrollAreaWidgetContents {
+    background-color: #2f3136; /* Tło spójne */
+}
+
+/* --- Karta Użytkownika (Styl dla QFrame używanego jako karta) --- */
+QFrame.UserCard { /* Użyjemy selektora klasy, który nadamy w kodzie Python */
+    background-color: #36393f; /* Tło karty (jak dawna tabela) */
+    border: 1px solid #202225;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px; /* Odstęp między kartami */
+}
+
+/* Style dla etykiet wewnątrz karty użytkownika */
+QFrame.UserCard QLabel {
+    background-color: transparent;
     color: #e8e9ea;
     font-size: 14px;
-    selection-background-color: #5865F2;
-    selection-color: #ffffff;
-    alternate-background-color: #40444b;
-    outline: none;
-}
-/* Wygląd komórek */
-QTableWidget#tableWidget::item {
-    padding: 12px 15px; /* Zwiększony padding dla lepszej czytelności */
-    border: none;
-    border-bottom: 1px solid #40444b; /* Linia oddzielająca wiersze */
+    margin-bottom: 4px;
 }
 
-/* --- Nagłówki Tabeli --- */
-QHeaderView {
-    border: none;
-    /* Tło dziedziczone z tableWidget lub można ustawić np. #36393f */
-    background-color: transparent; /* Przezroczyste, aby pokazać tło tabeli */
-}
-QHeaderView::section {
-    background-color: transparent; /* Przezroczyste */
+QFrame.UserCard QLabel[objectName^="userNameLabel"] { /* Dla etykiety z imieniem i nazwiskiem */
+    font-size: 16px;
+    font-weight: bold;
     color: #ffffff;
-    padding: 14px 15px; /* Wysokość nagłówka */
-    border: none;
-    font-size: 14px;
-    font-weight: 600;
-    text-align: left;
+    margin-bottom: 8px;
 }
-QHeaderView::section:horizontal {
-    border-bottom: 1px solid #202225; /* Ciemniejsza linia pod nagłówkiem */
-    border-right: 1px solid #202225; /* Ciemniejsza linia między */
+QFrame.UserCard QLabel[objectName^="userRoleLabel"] { /* Dla etykiety z rolą */
+    font-style: italic;
+    color: #b9bbbe; /* Nieco jaśniejszy szary dla roli */
 }
-QHeaderView::section:horizontal:last { border-right: none; }
-
-/* Narożnik tabeli - ważne, gdyby nagłówki miały inne tło */
-QTableWidget QTableCornerButton::section {
-    background-color: #36393f; /* Jak tło tabeli */
-    border: none;
-    border-right: 1px solid #202225;
-    border-bottom: 1px solid #202225;
-    border-top-left-radius: 8px; /* Spróbuj zaokrąglić róg */
+QFrame.UserCard QLabel[objectName^="userEmailLabel"] {
+    color: #b9bbbe;
+}
+QFrame.UserCard QLabel[objectName^="userPositionLabel"] {
+    color: #b9bbbe;
 }
 
 
-/* --- Przyciski --- */
+/* --- Przyciski (Wszystkie) - Styl jak w logowaniu (oryginalny) --- */
 QPushButton {
     background-color: #5865F2;
     color: white;
-    font-size: 14px;
+    font-size: 14px; /* Zostawiamy 14px, chyba że na kartach mają być mniejsze */
     font-weight: 600;
     padding: 8px 20px;
     border-radius: 5px;
@@ -113,7 +108,14 @@ QPushButton:hover { background-color: #4e5dcf; }
 QPushButton:pressed { background-color: #404ab8; }
 QPushButton:disabled { background-color: #40444b; color: #72767d; opacity: 0.6; }
 
-/* Paski przewijania */
+/* Przyciski na karcie, jeśli potrzebują innego rozmiaru/paddingu */
+QFrame.UserCard QPushButton {
+    font-size: 13px;
+    padding: 6px 15px;
+    min-height: 28px;
+}
+
+/* Paski przewijania - oryginalny styl */
 QScrollBar:vertical { border: 1px solid #202225; background: #36393f; width: 10px; margin: 1px 0 1px 0; border-radius: 5px;}
 QScrollBar::handle:vertical { background: #40444b; min-height: 25px; border-radius: 5px; }
 QScrollBar::handle:vertical:hover { background: #444950; }
@@ -129,9 +131,11 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
   </property>
   <layout class="QVBoxLayout" name="mainVerticalLayout">
    <property name="spacing">
-    <number>10</number> </property>
+    <number>10</number>
+   </property>
    <property name="leftMargin">
-    <number>15</number> </property>
+    <number>15</number>
+   </property>
    <property name="topMargin">
     <number>15</number>
    </property>
@@ -143,46 +147,85 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: n
    </property>
    <item>
     <widget class="QFrame" name="topToolbar">
-     <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <layout class="QHBoxLayout" name="topToolbarLayout">
       <item>
        <widget class="QLabel" name="titleLabel">
-        <property name="text"><string>Zarządzanie Użytkownikami</string></property>
+        <property name="text">
+         <string>Zarządzanie Użytkownikami</string>
+        </property>
        </widget>
       </item>
-      <item><spacer name="toolbarSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeType"><enum>QSizePolicy::Expanding</enum></property></spacer></item>
-     </layout>
+      <item>
+       <spacer name="toolbarSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Expanding</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QTableWidget" name="tableWidget">
-     <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"><horstretch>0</horstretch><verstretch>1</verstretch></sizepolicy></property>
-     <property name="editTriggers"><set>QAbstractItemView::NoEditTriggers</set></property>
-     <property name="selectionBehavior"><enum>QAbstractItemView::SelectRows</enum></property>
-     <property name="alternatingRowColors"><bool>true</bool></property>
-     <property name="showGrid"><bool>false</bool></property>
-     <property name="wordWrap"><bool>true</bool></property>
-     <property name="sortingEnabled"><bool>true</bool></property>
-     <property name="verticalScrollMode"><enum>QAbstractItemView::ScrollPerPixel</enum></property>
-     <property name="horizontalScrollMode"><enum>QAbstractItemView::ScrollPerPixel</enum></property>
-     <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
-     <attribute name="verticalHeaderDefaultSectionSize"><number>52</number></attribute> <attribute name="verticalHeaderMinimumSectionSize"><number>48</number></attribute>
-     <attribute name="horizontalHeaderHighlightSections"><bool>false</bool></attribute>
-     <attribute name="horizontalHeaderStretchLastSection"><bool>false</bool></attribute>
-     <column><property name="text"><string>Imię</string></property></column>
-     <column><property name="text"><string>Nazwisko</string></property></column>
-     <column><property name="text"><string>Email</string></property></column>
-     <column><property name="text"><string>Stanowisko</string></property></column>
-     <column><property name="text"><string>Rola</string></property></column>
-     <column><property name="text"><string>Edycja</string></property></column>
-     <column><property name="text"><string>Usuwanie</string></property></column>
-    </widget>
-   </item>
-   <item>
-    <widget class="QFrame" name="bottomBar">
-     <property name="sizePolicy"><sizepolicy hsizetype="Preferred" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property>
-     <layout class="QHBoxLayout" name="bottomBarLayout">
-      <item><spacer name="bottomSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeType"><enum>QSizePolicy::Expanding</enum></property></spacer></item> </layout>
+    <widget class="QScrollArea" name="userListScrollArea">
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum> </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>1070</width> <height>650</height> </rect>
+      </property>
+      <layout class="QVBoxLayout" name="userListLayout">
+       <property name="spacing">
+        <number>0</number> </property>
+       <property name="leftMargin">
+        <number>10</number>
+       </property>
+       <property name="topMargin">
+        <number>10</number>
+       </property>
+       <property name="rightMargin">
+        <number>10</number>
+       </property>
+       <property name="bottomMargin">
+        <number>10</number>
+       </property>
+       <item>
+        <spacer name="userListSpacer"> <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+         <property name="sizeType">
+            <enum>QSizePolicy::Expanding</enum>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>

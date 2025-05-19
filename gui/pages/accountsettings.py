@@ -9,7 +9,16 @@ class AccountSettings(QtWidgets.QWidget):
     def __init__(self, user_id):
         super(AccountSettings, self).__init__()
         loadUi("ui/accountsettings.ui", self)
+        self.setAutoFillBackground(True)
         self.user_id = user_id
+
+        # --- Ciemny layout (w formie widgetu) ---
+        self.background_widget = QtWidgets.QWidget(self)
+        self.background_widget.setGeometry(0, 0, 4000, 4000)  # bardzo duży rozmiar
+        self.background_widget.setStyleSheet("background-color: rgb(47, 49, 54);")
+        self.background_widget.lower()  # przesuwam na spód
+        self.background_widget.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)  # ignoruje kliknięcia
+        
         self.initUI()
         self.load_user_data()
         self.saveChanges.clicked.connect(self.save_changes)
@@ -22,7 +31,7 @@ class AccountSettings(QtWidgets.QWidget):
         self.password.textChanged.connect(lambda: self.statusLabel.setText(""))
         self.new_password.textChanged.connect(lambda: self.statusLabel.setText(""))
         self.confirm_new_password.textChanged.connect(lambda: self.statusLabel.setText(""))
-    
+
     def initUI(self):
         # Set tab order for better navigation
         self.setTabOrder(self.new_email, self.password)

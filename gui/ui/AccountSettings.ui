@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1000</width>
-    <height>850</height>
+    <height>940</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
 QWidget#AccountSettingsWidget {
     background-color: #2f3136;
     color: #e8e9ea;
-    font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif;
+    font-family: &quot;Segoe UI&quot;, Roboto, Cantarell, &quot;Helvetica Neue&quot;, sans-serif;
     font-size: 14px;
 }
 
@@ -166,11 +166,11 @@ QLabel#statusLabel {
     background-color: transparent;
 }
 
-QLabel#statusLabel[warning="true"] {
+QLabel#statusLabel[warning=&quot;true&quot;] {
     color: #faa61a;
 }
 
-QLabel#statusLabel[error="true"] {
+QLabel#statusLabel[error=&quot;true&quot;] {
     color: #ed4245;
 }
 
@@ -223,7 +223,6 @@ QToolTip {
       <property name="bottomMargin">
        <number>30</number>
       </property>
-      <!-- Profile Header -->
       <item>
        <layout class="QHBoxLayout" name="headerLayout">
         <property name="spacing">
@@ -295,7 +294,6 @@ QToolTip {
         </item>
        </layout>
       </item>
-      <!-- Email Settings Section -->
       <item>
        <widget class="QFrame" name="emailSection">
         <property name="styleSheet">
@@ -325,7 +323,7 @@ padding-bottom: 5px;
 border-bottom: 1px solid #4f545c;</string>
            </property>
            <property name="text">
-            <string>Email Settings</string>
+            <string>Email</string>
            </property>
           </widget>
          </item>
@@ -349,7 +347,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>Current Email:</string>
+              <string>Aktualny Email</string>
              </property>
             </widget>
            </item>
@@ -369,14 +367,14 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>New Email:</string>
+              <string>Nowy Email</string>
              </property>
             </widget>
            </item>
            <item row="1" column="1">
             <widget class="QLineEdit" name="new_email">
              <property name="placeholderText">
-              <string>Enter new email address</string>
+              <string>Wprowadź nowy email</string>
              </property>
             </widget>
            </item>
@@ -385,8 +383,6 @@ padding-right: 5px;</string>
         </layout>
        </widget>
       </item>
-      
-      <!-- Password Settings Section -->
       <item>
        <widget class="QFrame" name="passwordSection">
         <property name="styleSheet">
@@ -416,7 +412,7 @@ padding-bottom: 5px;
 border-bottom: 1px solid #4f545c;</string>
            </property>
            <property name="text">
-            <string>Password Settings</string>
+            <string>Zmiana hasła</string>
            </property>
           </widget>
          </item>
@@ -440,17 +436,20 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>Current Password:</string>
+              <string>Aktualne Hasło</string>
              </property>
             </widget>
            </item>
            <item row="0" column="1">
             <widget class="QLineEdit" name="password">
+             <property name="text">
+              <string/>
+             </property>
              <property name="echoMode">
               <enum>QLineEdit::Password</enum>
              </property>
              <property name="placeholderText">
-              <string>Enter current password</string>
+              <string>Wprowadź aktualne hasło</string>
              </property>
             </widget>
            </item>
@@ -463,7 +462,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>New Password:</string>
+              <string>Nowe Hasło</string>
              </property>
             </widget>
            </item>
@@ -473,7 +472,7 @@ padding-right: 5px;</string>
               <enum>QLineEdit::Password</enum>
              </property>
              <property name="placeholderText">
-              <string>Enter new password</string>
+              <string>Wprowadź nowe hasło</string>
              </property>
             </widget>
            </item>
@@ -486,7 +485,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>Confirm Password:</string>
+              <string>Potwierdź Hasło</string>
              </property>
             </widget>
            </item>
@@ -496,7 +495,7 @@ padding-right: 5px;</string>
               <enum>QLineEdit::Password</enum>
              </property>
              <property name="placeholderText">
-              <string>Confirm new password</string>
+              <string>Powtórz hasło</string>
              </property>
             </widget>
            </item>
@@ -505,8 +504,6 @@ padding-right: 5px;</string>
         </layout>
        </widget>
       </item>
-      
-      <!-- Personal Information Section -->
       <item>
        <widget class="QFrame" name="personalInfoSection">
         <property name="styleSheet">
@@ -536,7 +533,7 @@ padding-bottom: 5px;
 border-bottom: 1px solid #4f545c;</string>
            </property>
            <property name="text">
-            <string>Personal Information</string>
+            <string>Informacje osobiste</string>
            </property>
           </widget>
          </item>
@@ -560,7 +557,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>First Name:</string>
+              <string>Imię</string>
              </property>
             </widget>
            </item>
@@ -580,7 +577,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>Last Name:</string>
+              <string>Nazwisko</string>
              </property>
             </widget>
            </item>
@@ -600,7 +597,7 @@ font-weight: 500;
 padding-right: 5px;</string>
              </property>
              <property name="text">
-              <string>Position:</string>
+              <string>Stanowisko</string>
              </property>
             </widget>
            </item>
@@ -616,8 +613,6 @@ padding-right: 5px;</string>
         </layout>
        </widget>
       </item>
-      
-      <!-- Status Label and Save Button -->
       <item>
        <layout class="QHBoxLayout" name="bottomLayout">
         <item>
@@ -642,6 +637,12 @@ padding-right: 5px;</string>
         </item>
         <item>
          <widget class="QPushButton" name="saveChanges">
+          <property name="minimumSize">
+           <size>
+            <width>150</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="styleSheet">
            <string>background-color: #5865F2;
 color: white;
@@ -652,13 +653,7 @@ font-size: 14px;
 font-weight: 600;</string>
           </property>
           <property name="text">
-           <string>Save Changes</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>150</width>
-            <height>0</height>
-           </size>
+           <string>Zapisz zmiany</string>
           </property>
          </widget>
         </item>

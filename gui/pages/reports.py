@@ -1,784 +1,694 @@
-from PyQt5.QtWidgets import (QDialog, QTableWidgetItem, QDateEdit, QFileDialog, 
+from PyQt5.QtWidgets import (QDialog, QDateEdit, QFileDialog,
                           QMessageBox, QComboBox, QVBoxLayout, QLabel, QHBoxLayout,
-                          QPushButton, QFrame, QHeaderView, QTextEdit, QTableWidget)
+                          QPushButton, QFrame, QHeaderView, QTableView,
+                          QApplication, QAbstractItemView, QSizePolicy, QSpacerItem, QToolButton)
 from PyQt5.uic import loadUi
-from PyQt5.QtCore import Qt, QDate, pyqtSlot
-from PyQt5.QtGui import QPixmap, QFont, QColor
+from PyQt5.QtCore import Qt, QDate, pyqtSlot, QTimer, QDateTime, QModelIndex, QSize
+from PyQt5.QtGui import QPixmap, QFont, QColor, QStandardItemModel, QStandardItem, QIcon, QPen
+
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 import sys
 import traceback
 from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib import colors as reportlab_colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+# Usunięto: from reportlab.pdfbase import pdfmetrics
+# Usunięto: from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import inch, cm
 from db_config import DB_CONFIG
 import pkg_resources
 
-# Inicjalizacja czcionek wbudowanych - nie próbujemy pobierać czcionek z sieci
-try:
-    # Używamy czcionek wbudowanych w ReportLab, które zawsze działają
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
-    
-    # Upewniamy się, że pdfmetrics ma zarejestrowane podstawowe czcionki
-    pdfmetrics.registerFont(pdfmetrics._fonts['Helvetica'])
-    pdfmetrics.registerFont(pdfmetrics._fonts['Helvetica-Bold'])
-    pdfmetrics.registerFont(pdfmetrics._fonts['Helvetica-Oblique'])
-    pdfmetrics.registerFont(pdfmetrics._fonts['Helvetica-BoldOblique'])
-    
-    # Rejestrujemy rodzinę czcionek
-    registerFontFamily('Helvetica', normal='Helvetica', bold='Helvetica-Bold',
-                       italic='Helvetica-Oblique', boldItalic='Helvetica-BoldOblique')
-    
-    print("Podstawowe czcionki zarejestrowane pomyślnie")
-except Exception as e:
-    print(f"Błąd rejestracji czcionek: {e}")
+# Usunięto sekcję FONT_DIR, DEJAVU_SANS_PATH i logikę rejestracji czcionek DejaVu.
+# Domyślne czcionki ReportLab (Helvetica) będą używane.
+PDF_DEFAULT_FONT = 'Helvetica'
+PDF_DEFAULT_FONT_BOLD = 'Helvetica-Bold'
+PDF_DEFAULT_FONT_ITALIC = 'Helvetica-Oblique'
 
 class Reports(QDialog):
     def __init__(self, user_id=None):
         super(Reports, self).__init__()
-        loadUi("ui/report.ui", self)
-        
+
         self.user_id = user_id
         self.user_data = None
-        
+        self.tableModel = QStandardItemModel(self)
+        self.current_pcb_code = None
+        self.current_view_mode = "date"
+
+        self.conn = None
+        self.cursor = None
+
         try:
-            # Initialize database connection
-            self.init_database()
-            
-            # If user_id is provided, get user information
+            loadUi("ui/report.ui", self)
+        except Exception as e:
+            print(f"Nie udało się załadować ui/report.ui: {e}. UI zostanie utworzone programowo.")
+            if not hasattr(self, 'mainVerticalLayout'):
+                 self.mainVerticalLayout = QVBoxLayout(self)
+                 self.setLayout(self.mainVerticalLayout)
+        try:
+            self.init_database_connection()
+            self.configure_ui_elements_modern()
+
             if self.user_id:
                 self.user_data = self.get_user_data()
-            
-            # Setup UI connections
-            self.setup_ui()
-            
-            # Load initial report data (today's data)
+
+            self.setup_dynamic_elements()
+            self.load_report_codes()
             self.load_report_data()
-            
+
         except Exception as e:
             print(f"Błąd inicjalizacji raportu: {e}")
             traceback.print_exc()
-            QMessageBox.critical(None, "Błąd", f"Wystąpił błąd podczas inicjalizacji: {e}")
+            QMessageBox.critical(None, "Błąd Krytyczny", f"Wystąpił błąd podczas inicjalizacji: {e}")
 
-    def init_database(self):
-        """Initialize database connection"""
+    def configure_ui_elements_modern(self):
+        # ... (BEZ ZMIAN - Konfiguracja UI i Stylesheet) ...
+        self.setWindowTitle("Raporty Analizy PCB")
+        self.setMinimumSize(1000, 800)
+        self.setObjectName("ReportsDialog")
+        self.setStyleSheet("""
+            QDialog#ReportsDialog { background-color: #2f3136; color: #e8e9ea; font-family: "Segoe UI", Roboto, Cantarell, "Helvetica Neue", sans-serif; }
+            QLabel { color: #b9bbbe; font-size: 14px; padding-top: 5px; }
+            QFrame#titleFrame { background-color: #36393f; border: 1px solid #202225; padding: 0px 15px; min-height: 50px; max-height: 50px; border-radius: 8px;}
+            QLabel#titleLabel { font-size: 18px; font-weight: 600; color: #ffffff; padding: 0px; background-color: transparent; border: none; }
+            QLabel#currentDateTimeLabel { font-size: 14px; color: #96989d; padding-left: 15px; }
+            QDateEdit, QComboBox { background-color: #40444b; color: #dcddde; border: 1px solid #282a2e; border-radius: 5px; padding: 9px 12px; min-height: 20px; font-size: 14px;}
+            QDateEdit:focus, QComboBox:focus { border-color: #5865F2; }
+            QDateEdit::drop-down, QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 22px; border-left: 1px solid #282a2e;}
+            QComboBox QAbstractItemView { background-color: #36393f; border: 1px solid #282a2e; selection-background-color: #5865F2; color: #dcddde; padding: 4px; outline: none;}
+            QCalendarWidget { background-color: #2f3136; color: #dcddde; }
+            QCalendarWidget QToolButton { background-color: #40444b; color: white; border: 1px solid #282a2e; border-radius: 4px; padding: 6px; margin: 2px; font-size: 13px; font-weight: 500; min-width: 25px; }
+            QCalendarWidget QToolButton:hover { background-color: #4f545c; }
+            QCalendarWidget QToolButton:pressed { background-color: #5865F2; }
+            QCalendarWidget QMenu { background-color: #40444b; color: #dcddde; border: 1px solid #282a2e; padding: 5px;}
+            QCalendarWidget QSpinBox { background-color: #40444b; color: #dcddde; border: 1px solid #282a2e; padding: 5px; border-radius: 4px; font-size: 13px; margin: 2px;}
+            QCalendarWidget QTableView { gridline-color: #40444b; background-color: #36393f; selection-background-color: #5865F2; selection-color: white; border-radius: 4px; color: #dcddde;}
+            QCalendarWidget QAbstractItemView:disabled { color: #72767d; }
+            QCalendarWidget #qt_calendar_navigationbar { background-color: #2f3136; border: none; padding: 4px;}
+            QFrame#reportContentFrame { background-color: #36393f; border-radius: 8px; border: 1px solid #202225; }
+            QTableView#mainTableView { background-color: transparent; border: none; border-radius: 0px; gridline-color: #40444b; color: #dcddde; font-size: 14px; selection-background-color: #5865F2; selection-color: #ffffff; outline: none; alternate-background-color: #3a3e44; }
+            QTableView#mainTableView::item { padding: 10px 12px; border-bottom: 1px solid #40444b; border-right: 1px solid #40444b;}
+            QTableView#mainTableView::item:selected { background-color: #5865F2; color: #ffffff; }
+            QTableView#mainTableView::item:hover:!selected { background-color: #4f545c; }
+            QHeaderView::section { background-color: #2a2d31; color: #ffffff; padding: 12px 10px; border: none; border-bottom: 1px solid #222427; font-size: 14px; font-weight: 600;}
+            QHeaderView::section:horizontal { border-right: 1px solid #222427; }
+            QHeaderView::section:horizontal:last { border-right: none; }
+            QTableView#mainTableView QTableCornerButton::section { background-color: #2a2d31; border: none; border-bottom: 1px solid #222427; border-right: 1px solid #222427;}
+            QPushButton { background-color: #5865F2; color: white; font-size: 14px; font-weight: 600; padding: 9px 18px; border-radius: 5px; border: none; min-height: 20px; outline: none;}
+            QPushButton:hover { background-color: #4e5dcf; }
+            QPushButton:pressed { background-color: #404ab8; }
+            QPushButton#refreshButton, QPushButton#showAllButton { background-color: #4f545c; padding: 9px 15px; }
+            QPushButton#refreshButton:hover, QPushButton#showAllButton:hover { background-color: #5d6269; }
+            QPushButton#refreshButton:pressed, QPushButton#showAllButton:pressed { background-color: #6b6f79; }
+            QScrollBar:vertical { border: none; background: #2f3136; width: 14px; margin: 0px; }
+            QScrollBar::handle:vertical { background: #4f545c; min-height: 30px; border-radius: 7px; }
+            QScrollBar::handle:vertical:hover { background: #5a606b; }
+            QScrollBar:horizontal { border: none; background: #2f3136; height: 14px; margin: 0px; }
+            QScrollBar::handle:horizontal { background: #4f545c; min-width: 30px; border-radius: 7px; }
+            QScrollBar::handle:horizontal:hover { background: #5a606b; }
+        """)
+        
+        if not hasattr(self, 'mainVerticalLayout') or self.layout() != self.mainVerticalLayout:
+            current_layout = self.layout()
+            if current_layout is not None:
+                while current_layout.count():
+                    item = current_layout.takeAt(0)
+                    widget = item.widget(); layout_item = item.layout()
+                    if widget: widget.deleteLater()
+                    elif layout_item:
+                        while layout_item.count():
+                            sub_item = layout_item.takeAt(0)
+                            if sub_item.widget(): sub_item.widget().deleteLater()
+                        layout_item.deleteLater()
+                current_layout.deleteLater()
+            self.mainVerticalLayout = QVBoxLayout(self)
+            self.setLayout(self.mainVerticalLayout)
+        while self.mainVerticalLayout.count():
+            child = self.mainVerticalLayout.takeAt(0)
+            if child.widget(): child.widget().deleteLater()
+            elif child.layout():
+                temp_layout = child.layout()
+                while temp_layout.count():
+                    temp_item = temp_layout.takeAt(0)
+                    if temp_item.widget(): temp_item.widget().deleteLater()
+                    elif temp_item.layout():
+                         inner_layout = temp_item.layout()
+                         while inner_layout.count(): inner_item = inner_layout.takeAt(0)
+                         if inner_item.widget(): inner_item.widget().deleteLater()
+                         inner_layout.deleteLater()
+                temp_layout.deleteLater()
+        self.mainVerticalLayout.setContentsMargins(20, 20, 20, 20)
+        self.mainVerticalLayout.setSpacing(18)
+        headerOuterLayout = QHBoxLayout()
+        headerOuterLayout.setSpacing(0) 
+        headerOuterLayout.setAlignment(Qt.AlignVCenter) 
+        self.titleFrame = QFrame(self) 
+        self.titleFrame.setObjectName("titleFrame") 
+        titleFrameLayout = QHBoxLayout(self.titleFrame) 
+        titleFrameLayout.setContentsMargins(0,0,0,0) 
+        self.titleLabel = QLabel("Raporty Analizy PCB", self.titleFrame)
+        self.titleLabel.setObjectName("titleLabel")
+        self.titleLabel.setAlignment(Qt.AlignCenter) 
+        titleFrameLayout.addWidget(self.titleLabel)
+        headerOuterLayout.addWidget(self.titleFrame, 1) 
+        self.currentDateTimeLabel = QLabel(self)
+        self.currentDateTimeLabel.setObjectName("currentDateTimeLabel")
+        self.currentDateTimeLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.currentDateTimeLabel.setFixedHeight(50) 
+        headerOuterLayout.addWidget(self.currentDateTimeLabel) 
+        self.mainVerticalLayout.addLayout(headerOuterLayout)
+        controlsLayout = QHBoxLayout()
+        controlsLayout.setSpacing(10)
+        date_label = QLabel("Data raportu:", self)
+        self.dateEdit = QDateEdit(self)
+        self.dateEdit.setCalendarPopup(True)
+        self.dateEdit.setFixedWidth(140)
+        code_label = QLabel("Kod PCB:", self)
+        self.reportCodeCombo = QComboBox(self)
+        self.reportCodeCombo.setMinimumWidth(250)
+        self.reportCodeCombo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.showAllButton = QPushButton("Wszystkie PCB", self)
+        self.showAllButton.setObjectName("showAllButton")
+        self.refreshButton = QPushButton("Odśwież", self)
+        self.refreshButton.setObjectName("refreshButton")
+        self.dateEdit.blockSignals(True)
+        self.dateEdit.setDate(QDate.currentDate())
+        self.dateEdit.blockSignals(False)
+        self.dateEdit.dateChanged.connect(self.on_date_changed)
+        self.reportCodeCombo.currentIndexChanged.connect(self.on_report_code_changed)
+        self.showAllButton.clicked.connect(self.load_all_pcb_data)
+        self.refreshButton.clicked.connect(self.refresh_data)
+        controlsLayout.addWidget(date_label); controlsLayout.addWidget(self.dateEdit)
+        controlsLayout.addSpacing(15); controlsLayout.addWidget(code_label)
+        controlsLayout.addWidget(self.reportCodeCombo, 1)
+        controlsLayout.addSpacerItem(QSpacerItem(15, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        controlsLayout.addWidget(self.showAllButton); controlsLayout.addWidget(self.refreshButton)
+        self.mainVerticalLayout.addLayout(controlsLayout)
+        self.reportFrameTable = QFrame(self) 
+        self.reportFrameTable.setObjectName("reportContentFrame") 
+        reportFrameLayoutTable = QVBoxLayout(self.reportFrameTable)
+        reportFrameLayoutTable.setContentsMargins(3, 3, 3, 3) 
+        self.tableView = QTableView(self.reportFrameTable)
+        self.tableView.setObjectName("mainTableView")
+        self.tableView.setModel(self.tableModel)
+        self.tableView.setAlternatingRowColors(True); self.tableView.setShowGrid(True)
+        self.tableView.setWordWrap(True); self.tableView.verticalHeader().setVisible(False)
+        self.tableView.verticalHeader().setDefaultSectionSize(45)
+        self.tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tableView.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tableView.horizontalHeader().setStretchLastSection(True)
+        self.tableView.doubleClicked.connect(self.on_table_double_clicked)
+        reportFrameLayoutTable.addWidget(self.tableView)
+        self.mainVerticalLayout.addWidget(self.reportFrameTable, 1)
+        footerLayout = QHBoxLayout()
+        self.generatePdfButton = QPushButton("Generuj raport PDF", self)
+        self.generatePdfButton.setObjectName("generatePdfButton")
+        self.generatePdfButton.clicked.connect(self.generate_pdf_report)
+        footerLayout.addStretch(1); footerLayout.addWidget(self.generatePdfButton)
+        self.mainVerticalLayout.addLayout(footerLayout)
+
+    def setup_dynamic_elements(self):
+        # ... (BEZ ZMIAN) ...
+        self.dateTimeTimer = QTimer(self)
+        self.dateTimeTimer.timeout.connect(self.update_current_datetime_label)
+        self.dateTimeTimer.start(1000)
+        self.update_current_datetime_label()
+
+    def update_current_datetime_label(self):
+        # ... (BEZ ZMIAN) ...
+        if hasattr(self, 'currentDateTimeLabel'):
+            now = QDateTime.currentDateTime()
+            self.currentDateTimeLabel.setText(now.toString("dd.MM.yyyy HH:mm"))
+
+    def _close_db_connection(self):
+        # ... (BEZ ZMIAN) ...
+        if hasattr(self, 'cursor') and self.cursor:
+            try:
+                self.cursor.close()
+            except Exception as e:
+                print(f"Błąd podczas zamykania kursora: {e}")
+            self.cursor = None
+        if hasattr(self, 'conn') and self.conn and self.conn.is_connected():
+            try:
+                self.conn.close()
+            except Exception as e:
+                print(f"Błąd podczas zamykania połączenia z bazą: {e}")
+            self.conn = None
+
+    def init_database_connection(self):
+        # ... (BEZ ZMIAN) ...
+        self._close_db_connection() 
         try:
-            print("Łączenie z bazą danych...")
             self.conn = mysql.connector.connect(**DB_CONFIG)
+            self.conn.autocommit = True 
             self.cursor = self.conn.cursor(dictionary=True)
-            print("Połączono z bazą danych")
         except mysql.connector.Error as e:
-            print(f"Błąd połączenia z bazą danych: {e}")
-            QMessageBox.critical(self, "Błąd", f"Nie można połączyć się z bazą danych: {e}")
+            QMessageBox.critical(self, "Błąd Bazy Danych", f"Nie można połączyć się z bazą danych: {e}")
+            self.conn = None 
+            self.cursor = None
             raise e
 
     def get_user_data(self):
-        """Get user information from database"""
+        # ... (BEZ ZMIAN) ...
         try:
-            self.cursor.execute("""
-                SELECT u.id, u.name, u.surname, u.email, p.name AS position_name 
-                FROM user u 
-                LEFT JOIN `position` p ON u.position_id = p.id 
-                WHERE u.id = %s
-            """, (self.user_id,))
+            if not self.conn or not self.conn.is_connected(): self.init_database_connection()
+            self.cursor.execute("SELECT u.id, u.name, u.surname, u.email, p.name AS position_name FROM user u LEFT JOIN `position` p ON u.position_id = p.id WHERE u.id = %s", (self.user_id,))
             return self.cursor.fetchone()
         except mysql.connector.Error as e:
             print(f"Błąd pobierania danych użytkownika: {e}")
+            QMessageBox.warning(self, "Błąd Danych", "Nie udało się pobrać danych użytkownika.")
             return None
-
-    def setup_ui(self):
-        """Setup UI connections and initial state"""
-        # Usuniete przyciski zakresu dat (dzien, tydzien, miesiac, rok)
-        
-        # Ustawienie jednolitego stylu dla całego interfejsu
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2f3136;
-                color: #e8e9ea;
-            }
-            QTableWidget {
-                background-color: #36393f;
-                border: none;
-                gridline-color: #4f545c;
-                color: #dcddde;
-                font-size: 14px;
-                selection-background-color: #5865F2;
-                selection-color: #ffffff;
-                outline: none;
-            }
-            QTableWidget::item {
-                padding: 12px 10px;
-                min-height: 30px;
-            }
-            QHeaderView::section {
-                background-color: #2f3136;
-                color: #ffffff;
-                padding: 15px 12px;
-                border: none;
-                border-bottom: 1px solid #4f545c;
-                min-height: 30px;
-            }
-            QHeaderView::section:horizontal {
-                border-right: 1px solid #4f545c;
-            }
-            QHeaderView::section:vertical {
-                background-color: #40444b;
-                border-right: 1px solid #4f545c;
-                border-bottom: 1px solid #4f545c;
-            }
-            QFrame {
-                background-color: #36393f;
-                border: none;
-            }
-            QLabel {
-                color: #dcddde;
-            }
-            QComboBox, QDateEdit {
-                background-color: #40444b;
-                color: #dcddde;
-                border: 1px solid #4f545c;
-                border-radius: 4px;
-                padding: 5px;
-                min-height: 28px;
-            }
-            QComboBox:focus, QDateEdit:focus {
-                border: 1px solid #5865F2;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #36393f;
-                color: #dcddde;
-                border: 1px solid #4f545c;
-                selection-background-color: #5865F2;
-            }
-            QPushButton {
-                background-color: #5865F2;
-                color: white;
-                font-size: 13px;
-                font-weight: 600;
-                padding: 6px 16px;
-                border-radius: 4px;
-                border: none;
-                min-height: 28px;
-            }
-            QPushButton:hover {
-                background-color: #4e5dcf;
-            }
-            QPushButton:pressed {
-                background-color: #404ab8;
-            }
-            QPushButton#refreshButton {
-                background-color: #4f545c;
-                color: white;
-            }
-            QPushButton#refreshButton:hover {
-                background-color: #5d6269;
-            }
-            QPushButton#refreshButton:pressed {
-                background-color: #6b6f79;
-            }
-        """)
-        
-        # Setup date selector if exists in UI
-        if hasattr(self, 'dateEdit'):
-            self.dateEdit.setDate(QDate.currentDate())
-            self.dateEdit.dateChanged.connect(self.on_date_changed)
-        else:
-            # Create date selector if not in UI
-            self.dateFrame = QFrame(self)
-            date_layout = QHBoxLayout(self.dateFrame)
-            date_layout.setContentsMargins(10, 10, 10, 10)
-            date_label = QLabel("Wybierz datę:", self.dateFrame)
-            self.dateEdit = QDateEdit(self.dateFrame)
-            self.dateEdit.setCalendarPopup(True)
-            self.dateEdit.setDate(QDate.currentDate())
-            self.dateEdit.dateChanged.connect(self.on_date_changed)
-            date_layout.addWidget(date_label)
-            date_layout.addWidget(self.dateEdit)
-            
-            # Add to main layout after the top toolbar
-            self.mainVerticalLayout.insertWidget(1, self.dateFrame)
-        
-        # Setup report code selector
-        if not hasattr(self, 'reportCodeCombo'):
-            self.reportCodeFrame = QFrame(self)
-            code_layout = QHBoxLayout(self.reportCodeFrame)
-            code_layout.setContentsMargins(10, 10, 10, 10)
-            code_label = QLabel("Kod PCB:", self.reportCodeFrame)
-            self.reportCodeCombo = QComboBox(self.reportCodeFrame)
-            self.reportCodeCombo.setMinimumWidth(200)
-            self.reportCodeCombo.currentIndexChanged.connect(self.on_report_code_changed)
-            code_layout.addWidget(code_label)
-            code_layout.addWidget(self.reportCodeCombo)
-            
-            # Add to main layout after the date selector
-            self.mainVerticalLayout.insertWidget(2, self.reportCodeFrame)
-        
-        # Flaga do śledzenia aktualnie wybranego PCB
-        self.current_pcb_code = None
-        
-        # Setup refresh button
-        if hasattr(self, 'refreshButton'):
-            self.refreshButton.clicked.connect(self.refresh_data)
-            
-        # Setup generate PDF button
-        if not hasattr(self, 'generatePdfButton'):
-            self.generatePdfButton = QPushButton("Generuj raport PDF", self)
-            self.generatePdfButton.clicked.connect(self.generate_pdf_report)
-            
-            # Create a horizontal layout for the bottom bar buttons
-            if hasattr(self, 'bottomBar'):
-                layout = self.bottomBar.layout()
-                if layout:
-                    # Add the generate PDF button to the existing layout
-                    layout.addWidget(self.generatePdfButton)
-                else:
-                    # Create a new layout for the bottom bar
-                    bottom_layout = QHBoxLayout(self.bottomBar)
-                    bottom_layout.addStretch()
-                    bottom_layout.addWidget(self.generatePdfButton)
-            else:
-                # Just add it to the main layout if there's no bottom bar
-                self.mainVerticalLayout.addWidget(self.generatePdfButton)
-        
-        # Popraw ustawienia tabeli, aby zapewnić lepszą czytelność
-        if hasattr(self, 'tableWidget'):
-            self.tableWidget.setAlternatingRowColors(True)
-            self.tableWidget.setShowGrid(True)
-            self.tableWidget.setWordWrap(True)
-            self.tableWidget.verticalHeader().setDefaultSectionSize(50)  # Zwiększona wysokość wiersza
-            self.tableWidget.horizontalHeader().setDefaultSectionSize(180)  # Zwiększona szerokość kolumny
-            
-            # Włącz scroll per pixel dla płynniejszego przewijania
-            self.tableWidget.setVerticalScrollMode(QTableWidget.ScrollPerPixel)
-            self.tableWidget.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
-        
-        # Set title
-        if hasattr(self, 'titleLabel'):
-            self.titleLabel.setText("Raporty analizy PCB")
-        
-        # Load available report codes
-        self.load_report_codes()
+        except AttributeError: 
+             QMessageBox.warning(self, "Błąd Połączenia", "Brak aktywnego połączenia z bazą danych (get_user_data).")
+             return None
 
     def load_report_codes(self):
-        """Load all available PCB codes for report selection"""
+        # ... (BEZ ZMIAN) ...
         try:
-            self.cursor.execute("""
-                SELECT pcb_code, date_analyzed 
-                FROM pcb_records 
-                ORDER BY date_analyzed DESC
-            """)
+            if not self.conn or not self.conn.is_connected(): self.init_database_connection()
+            self.cursor.execute("SELECT pcb_code, date_analyzed FROM pcb_records ORDER BY date_analyzed DESC")
             records = self.cursor.fetchall()
             
-            if hasattr(self, 'reportCodeCombo'):
-                self.reportCodeCombo.clear()
-                self.reportCodeCombo.addItem("-- Wybierz kod PCB --", None)
-                
-                for record in records:
-                    display_text = f"{record['pcb_code']} ({record['date_analyzed'].strftime('%Y-%m-%d')})"
-                    self.reportCodeCombo.addItem(display_text, record['pcb_code'])
-        
+            if not hasattr(self, 'reportCodeCombo'): return 
+
+            current_selection_data = self.reportCodeCombo.currentData()
+            self.reportCodeCombo.blockSignals(True)
+            self.reportCodeCombo.clear()
+            self.reportCodeCombo.addItem("-- Wybierz kod PCB --", None)
+            
+            idx_to_select = 0
+            for i, record in enumerate(records):
+                display_text = f"{record['pcb_code']} (analiza: {record['date_analyzed'].strftime('%y-%m-%d %H:%M')})"
+                self.reportCodeCombo.addItem(display_text, record['pcb_code'])
+                if record['pcb_code'] == current_selection_data:
+                    idx_to_select = i + 1
+            
+            self.reportCodeCombo.setCurrentIndex(idx_to_select)
+            self.reportCodeCombo.blockSignals(False)
+            
+            if self.reportCodeCombo.currentIndex() == 0 and current_selection_data is not None:
+                self.current_pcb_code = None
+            elif self.reportCodeCombo.currentIndex() > 0:
+                 self.current_pcb_code = self.reportCodeCombo.currentData()
+
         except mysql.connector.Error as e:
-            print(f"Błąd ładowania kodów raportów: {e}")
-            QMessageBox.warning(self, "Ostrzeżenie", f"Nie można załadować kodów PCB: {e}")
+            QMessageBox.warning(self, "Błąd Ładowania Kodów", f"Nie można załadować kodów PCB: {e}")
+        except AttributeError:
+             QMessageBox.warning(self, "Błąd Połączenia", "Brak aktywnego połączenia z bazą danych (load_report_codes).")
 
     def on_date_changed(self):
-        """Handle date change event"""
-        self.load_report_data()
+        # ... (BEZ ZMIAN) ...
+        if not hasattr(self, 'reportCodeCombo') or not hasattr(self, 'dateEdit'): return
+        self.dateEdit.setStyleSheet("") 
+        self.current_pcb_code = None
+        self.current_view_mode = "date"
+        if self.reportCodeCombo.currentIndex() != 0:
+            self.reportCodeCombo.setCurrentIndex(0) 
+        else: 
+            if hasattr(self, 'titleLabel'):
+                 self.titleLabel.setText(f"Raporty z dnia: {self.dateEdit.date().toString('dd.MM.yyyy')}")
+            self.load_report_data()
 
     def on_report_code_changed(self, index):
-        """Handle report code selection change"""
-        if index <= 0:  # First item is placeholder
-            return
-        
-        pcb_code = self.reportCodeCombo.itemData(index)
-        self.current_pcb_code = pcb_code  # Zapisz aktualnie wybrany PCB
-        
-        # Najpierw załaduj dane o PCB
-        self.load_specific_report(pcb_code)
-        
-        # Następnie pobierz i wyświetl komponenty dla wybranego PCB
-        self.display_pcb_components(pcb_code)
+        # ... (BEZ ZMIAN) ...
+        if not hasattr(self, 'reportCodeCombo') or not hasattr(self, 'dateEdit'): return
+        self.dateEdit.setStyleSheet("")
+        pcb_code_data = self.reportCodeCombo.itemData(index)
+        if pcb_code_data:
+            self.current_pcb_code = pcb_code_data
+            self.display_pcb_components(pcb_code_data) 
+        else: 
+            self.current_pcb_code = None
+            if hasattr(self, 'titleLabel') and hasattr(self, 'dateEdit'):
+                 self.titleLabel.setText(f"Raporty z dnia: {self.dateEdit.date().toString('dd.MM.yyyy')}")
+            self.load_report_data() 
+
+    def load_all_pcb_data(self):
+        # ... (BEZ ZMIAN) ...
+        try:
+            if not self.conn or not self.conn.is_connected(): self.init_database_connection()
+            self.cursor.execute("""
+                SELECT p.pcb_code, p.date_analyzed, COUNT(c.id) as component_count
+                FROM pcb_records p LEFT JOIN components c ON p.pcb_code = c.pcb_code
+                GROUP BY p.pcb_code, p.date_analyzed ORDER BY p.date_analyzed DESC
+            """)
+            records = self.cursor.fetchall()
+            self.display_report_data_in_table(records)
+            
+            if hasattr(self, 'titleLabel'):
+                self.titleLabel.setText(f"Wszystkie Zarejestrowane PCB ({len(records)})")
+            
+            self.current_pcb_code = None
+            self.current_view_mode = "all" 
+            if hasattr(self, 'reportCodeCombo'): self.reportCodeCombo.setCurrentIndex(0)
+            if hasattr(self, 'dateEdit'):
+                self.dateEdit.setStyleSheet("QDateEdit { background-color: #3a3e44; color: #72767d; }")
+        except mysql.connector.Error as e:
+            QMessageBox.critical(self, "Błąd Ładowania Danych", f"Nie można załadować wszystkich danych PCB: {e}")
+        except AttributeError:
+             QMessageBox.warning(self, "Błąd Połączenia", "Brak aktywnego połączenia z bazą danych (load_all_pcb_data).")
 
     def display_pcb_components(self, pcb_code):
-        """Wyświetl komponenty dla wybranego PCB w formie listy lub zgrupowane"""
+        # ... (BEZ ZMIAN - metoda GUI pozostaje nietknięta) ...
         try:
-            # Pobierz komponenty dla tego PCB
-            self.cursor.execute("""
-                SELECT component_id, component_type, score, bbox 
-                FROM components 
-                WHERE pcb_code = %s
-                ORDER BY component_type, component_id
-            """, (pcb_code,))
-            
+            if not self.conn or not self.conn.is_connected(): self.init_database_connection()
+            self.cursor.execute("SELECT component_id, component_type, score FROM components WHERE pcb_code = %s ORDER BY component_type, component_id", (pcb_code,))
             components = self.cursor.fetchall()
+            self.tableModel.clear()
             
+            if not hasattr(self.tableView, 'horizontalHeader') or not hasattr(self, 'titleLabel'): return
+
             if not components:
-                QMessageBox.information(self, "Informacja", f"Nie znaleziono komponentów dla PCB: {pcb_code}")
+                self.tableModel.setHorizontalHeaderLabels(['Informacja'])
+                self.tableModel.appendRow([QStandardItem(f"Brak komponentów dla PCB: {pcb_code}")])
+                self.tableView.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+                self.titleLabel.setText(f"Analiza PCB: {pcb_code} (0 komponentów)")
+                self.current_view_mode = "components" 
                 return
-            
-            # Wyczyść istniejącą tabelę
-            self.tableWidget.clear()
-            self.tableWidget.setRowCount(0)
-            
-            # Widok prostej listy komponentów
-            self.display_component_list(components)
-            
-            # Ustaw tytuł z informacją o PCB
-            if hasattr(self, 'titleLabel'):
-                count_text = f"{len(components)} komponentów"
-                self.titleLabel.setText(f"PCB: {pcb_code} ({count_text})")
-            
-        except mysql.connector.Error as e:
-            print(f"Błąd pobierania komponentów: {e}")
-            QMessageBox.warning(self, "Ostrzeżenie", f"Nie można pobrać komponentów: {e}")
-    
-    def display_component_list(self, components):
-        """Wyświetl komponenty jako prostą listę"""
-        # Sprawdź czy lista komponentów jest pusta
-        if not components:
-            self.tableWidget.clear()
-            self.tableWidget.setRowCount(0)
-            self.tableWidget.setColumnCount(1)
-            self.tableWidget.setHorizontalHeaderLabels(['Informacja'])
-            self.tableWidget.insertRow(0)
-            info_item = QTableWidgetItem("Brak danych do wyświetlenia")
-            info_item.setTextAlignment(Qt.AlignCenter)
-            self.tableWidget.setItem(0, 0, info_item)
-            return
-            
-        # Ustaw kolumny dla widoku listy
-        self.tableWidget.clear()
-        self.tableWidget.setRowCount(0)
-        self.tableWidget.setColumnCount(2)
-        self.tableWidget.setHorizontalHeaderLabels(['ID komponentu', 'Wynik'])
-        
-        # Ustaw szerokości kolumn
-        header = self.tableWidget.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # ID komponentu
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Wynik
-        
-        # Zwiększ domyślną wysokość wierszy dla lepszej czytelności
-        self.tableWidget.verticalHeader().setDefaultSectionSize(50)
-        
-        # Dodaj komponenty do tabeli
-        for i, comp in enumerate(components):
-            self.tableWidget.insertRow(i)
-            
-            # ID komponentu
-            id_item = QTableWidgetItem(comp['component_id'])
-            id_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.tableWidget.setItem(i, 0, id_item)
-            
-            # Wynik
-            score_item = QTableWidgetItem(f"{comp['score']:.2f}")
-            score_item.setTextAlignment(Qt.AlignCenter)
-            self.tableWidget.setItem(i, 1, score_item)
-            
-            # Kolorowanie wiersza w zależności od wyniku
-            if comp['score'] < 0.5:
-                # Ciemny czerwony dla lepszego kontrastu z ciemnym tłem
-                bg_color = QColor(165, 30, 30)
-                for col in range(2):
-                    self.tableWidget.item(i, col).setBackground(bg_color)
-                    self.tableWidget.item(i, col).setForeground(Qt.white)
-            elif comp['score'] < 0.8:
-                # Ciemny żółty dla lepszego kontrastu
-                bg_color = QColor(150, 135, 0)
-                for col in range(2):
-                    self.tableWidget.item(i, col).setBackground(bg_color)
-                    self.tableWidget.item(i, col).setForeground(Qt.black)
-            else:
-                # Dla wysokich wyników dodaj delikatne tło, by zaznaczyć dobry wynik
-                bg_color = QColor(30, 130, 76, 120)  # Ciemny zielony z przezroczystością
-                for col in range(2):
-                    self.tableWidget.item(i, col).setBackground(bg_color)
-                    # Jasny text dla lepszej czytelności
-                    self.tableWidget.item(i, col).setForeground(Qt.white)
-                    
-        # Dopasowujemy szerokość kolumn do zawartości, ale z minimalną szerokością
-        self.tableWidget.resizeColumnsToContents()
-        min_width = 180
-        if self.tableWidget.columnWidth(0) < min_width:
-            self.tableWidget.setColumnWidth(0, min_width)
-        if self.tableWidget.columnWidth(1) < 100:
-            self.tableWidget.setColumnWidth(1, 100)
-    
-    def load_report_data(self):
-        """Load report data based on selected date"""
-        try:
-            selected_date = self.dateEdit.date().toPyDate()
-            
-            # Format for SQL query
-            date_str = selected_date.strftime('%Y-%m-%d')
-            
-            self.cursor.execute("""
-                SELECT p.pcb_code, p.date_analyzed, COUNT(c.id) as component_count
-                FROM pcb_records p
-                LEFT JOIN components c ON p.pcb_code = c.pcb_code
-                WHERE DATE(p.date_analyzed) = %s
-                GROUP BY p.pcb_code, p.date_analyzed
-                ORDER BY p.date_analyzed DESC
-            """, (date_str,))
-            
-            records = self.cursor.fetchall()
-            self.display_report_data(records)
-            
-        except mysql.connector.Error as e:
-            print(f"Błąd ładowania danych raportu: {e}")
-            QMessageBox.warning(self, "Ostrzeżenie", f"Nie można załadować danych raportu: {e}")
 
-    def load_specific_report(self, pcb_code):
-        """Load report data for a specific PCB code"""
-        try:
-            self.cursor.execute("""
-                SELECT p.pcb_code, p.date_analyzed, COUNT(c.id) as component_count
-                FROM pcb_records p
-                LEFT JOIN components c ON p.pcb_code = c.pcb_code
-                WHERE p.pcb_code = %s
-                GROUP BY p.pcb_code, p.date_analyzed
-            """, (pcb_code,))
-            
-            records = self.cursor.fetchall()
-            self.display_report_data(records)
-            
-        except mysql.connector.Error as e:
-            print(f"Błąd ładowania konkretnego raportu: {e}")
-            QMessageBox.warning(self, "Ostrzeżenie", f"Nie można załadować raportu dla kodu PCB {pcb_code}: {e}")
+            self.tableModel.setHorizontalHeaderLabels(['ID Komponentu', 'Typ', 'Wynik'])
+            self.tableView.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            self.tableView.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+            self.tableView.setColumnWidth(1, 180) 
+            self.tableView.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+            self.tableView.setColumnWidth(2, 100)
 
-    def display_report_data(self, records):
-        """Display report data in the table"""
-        # Clear existing table
-        self.tableWidget.clear()
-        self.tableWidget.setRowCount(0)
-        
-        if not records:
-            # Wyświetl informację o braku danych
-            self.tableWidget.setColumnCount(1)
-            self.tableWidget.setHorizontalHeaderLabels(['Informacja'])
-            self.tableWidget.insertRow(0)
-            info_item = QTableWidgetItem("Brak danych dla wybranego okresu")
-            info_item.setTextAlignment(Qt.AlignCenter)
-            self.tableWidget.setItem(0, 0, info_item)
-            return
-        
-        # Set up table headers if not already set
-        self.tableWidget.setColumnCount(3)
-        self.tableWidget.setHorizontalHeaderLabels(['Kod PCB', 'Data analizy', 'Liczba komponentów'])
-        
-        # Set column widths
-        header = self.tableWidget.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        
-        # Add data to table
-        for row_idx, record in enumerate(records):
-            self.tableWidget.insertRow(row_idx)
-            
-            # PCB Code
-            pcb_code_item = QTableWidgetItem(record['pcb_code'])
-            pcb_code_item.setData(Qt.UserRole, record['pcb_code'])
-            pcb_code_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.tableWidget.setItem(row_idx, 0, pcb_code_item)
-            
-            # Analysis Date
-            date_str = record['date_analyzed'].strftime('%Y-%m-%d %H:%M')
-            date_item = QTableWidgetItem(date_str)
-            date_item.setTextAlignment(Qt.AlignCenter)
-            self.tableWidget.setItem(row_idx, 1, date_item)
-            
-            # Component Count
-            count_item = QTableWidgetItem(str(record['component_count']))
-            count_item.setTextAlignment(Qt.AlignCenter)
-            self.tableWidget.setItem(row_idx, 2, count_item)
-        
-        # Dopasuj szerokości kolumn do zawartości, ale z minimalnymi szerokościami
-        self.tableWidget.resizeColumnsToContents()
-        min_widths = [180, 150, 100]  # Minimalne szerokości dla poszczególnych kolumn
-        for col, min_width in enumerate(min_widths):
-            if self.tableWidget.columnWidth(col) < min_width:
-                self.tableWidget.setColumnWidth(col, min_width)
-        
-        # Setup item double-click to view component details
-        self.tableWidget.itemDoubleClicked.connect(self.show_component_details)
-
-    def show_component_details(self, item):
-        """Show detailed component information for the selected PCB"""
-        row = item.row()
-        pcb_code = self.tableWidget.item(row, 0).data(Qt.UserRole)
-        
-        try:
-            # Get components for this PCB
-            self.cursor.execute("""
-                SELECT component_id, component_type, score, bbox 
-                FROM components 
-                WHERE pcb_code = %s
-                ORDER BY component_type, component_id
-            """, (pcb_code,))
-            
-            components = self.cursor.fetchall()
-            
-            if not components:
-                QMessageBox.information(self, "Szczegóły komponentów", f"Nie znaleziono komponentów dla PCB: {pcb_code}")
-                return
-            
-            # Get PCB analysis date
-            self.cursor.execute("""
-                SELECT date_analyzed 
-                FROM pcb_records 
-                WHERE pcb_code = %s
-            """, (pcb_code,))
-            
-            pcb_record = self.cursor.fetchone()
-            analysis_date = pcb_record['date_analyzed'] if pcb_record else "Nieznana"
-            
-            # Prepare detailed message
-            details = f"PCB: {pcb_code}\n"
-            details += f"Data analizy: {analysis_date}\n"
-            details += f"Liczba komponentów: {len(components)}\n\n"
-            
-            # Group components by type
-            components_by_type = {}
             for comp in components:
-                comp_type = comp['component_type'] or "Nieznany"
-                if comp_type not in components_by_type:
-                    components_by_type[comp_type] = []
+                comp_id_text = comp['component_id']
+                type_text = comp['component_type'] if comp['component_type'] else "N/A"
+                score_text = f"{comp['score']:.2f}"
+                bg_color, text_color = None, None 
+                if comp['score'] < 0.5: 
+                    bg_color, text_color = QColor("#c62828"), Qt.white
+                    comp_id_text = f"❌ {comp_id_text}" 
+                elif comp['score'] < 0.8: 
+                    bg_color, text_color = QColor(85, 85, 85, 200), QColor(255, 235, 59)   
+                    comp_id_text = f"⚠ {comp_id_text}" 
                 
-                components_by_type[comp_type].append(comp)
+                id_item = QStandardItem(comp_id_text)
+                type_item = QStandardItem(type_text)
+                score_item = QStandardItem(score_text)
+                score_item.setTextAlignment(Qt.AlignCenter)
+                row_items = [id_item, type_item, score_item]
+                for item in row_items:
+                    if bg_color: item.setBackground(bg_color)
+                    if text_color: item.setForeground(text_color)
+                    else: 
+                        item.setBackground(QColor(Qt.transparent)) 
+                        item.setForeground(QColor("#dcddde")) 
+                self.tableModel.appendRow(row_items)
             
-            # Display components grouped by type
-            details += "Wykryte komponenty:\n"
-            for component_type, comps in components_by_type.items():
-                details += f"\n== {component_type} ({len(comps)}) ==\n"
-                for comp in comps:
-                    details += f"- {comp['component_id']} (Wynik: {comp['score']:.2f})\n"
-            
-            # Show details
-            QMessageBox.information(self, "Szczegóły komponentów", details)
-            
-        except mysql.connector.Error as e:
-            print(f"Błąd pobierania szczegółów komponentów: {e}")
-            QMessageBox.warning(self, "Ostrzeżenie", f"Nie można pobrać szczegółów komponentów: {e}")
+            self.titleLabel.setText(f"Analiza PCB: {pcb_code} ({len(components)} komponentów)")
+            self.current_view_mode = "components"
+        except mysql.connector.Error as e: QMessageBox.critical(self, "Błąd Wyświetlania", f"Nie można wyświetlić komponentów: {e}")
+        except AttributeError: QMessageBox.warning(self, "Błąd Połączenia", "Brak aktywnego połączenia z bazą danych (display_pcb_components).")
 
-    def generate_pdf_report(self):
-        """Generate a PDF report for the currently viewed data"""
-        if not self.current_pcb_code:
-            QMessageBox.warning(self, "Ostrzeżenie", "Wybierz najpierw kod PCB do wygenerowania raportu")
-            return
-        
-        # Ask for save location
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Zapisz raport PDF", f"Raport_PCB_{self.current_pcb_code}.pdf", "Pliki PDF (*.pdf)"
-        )
-        
-        if not file_path:
-            return  # User canceled
-        
-        if not file_path.lower().endswith('.pdf'):
-            file_path += '.pdf'
-        
+    def load_report_data(self):
+        # ... (BEZ ZMIAN) ...
         try:
-            # Create the PDF document
-            doc = SimpleDocTemplate(
-                file_path,
-                pagesize=A4,
-                topMargin=1*cm,
-                bottomMargin=1*cm,
-                leftMargin=2*cm,
-                rightMargin=2*cm
-            )
+            if not self.conn or not self.conn.is_connected(): self.init_database_connection()
+            if not hasattr(self, 'dateEdit'): return
+
+            selected_date_str = self.dateEdit.date().toString("yyyy-MM-dd")
+            self.cursor.execute("""
+                SELECT p.pcb_code, p.date_analyzed, COUNT(c.id) as component_count
+                FROM pcb_records p LEFT JOIN components c ON p.pcb_code = c.pcb_code
+                WHERE DATE(p.date_analyzed) = %s
+                GROUP BY p.pcb_code, p.date_analyzed ORDER BY p.date_analyzed DESC
+            """, (selected_date_str,))
+            records = self.cursor.fetchall()
+            self.display_report_data_in_table(records)
             
-            # Używamy standardowych czcionek wbudowanych w ReportLab
-            standard_font = 'Helvetica'
-            bold_font = 'Helvetica-Bold'
-            italic_font = 'Helvetica-Oblique'
+            if not self.current_pcb_code: 
+                if hasattr(self, 'titleLabel'):
+                    self.titleLabel.setText(f"Raporty z dnia: {self.dateEdit.date().toString('dd.MM.yyyy')}")
+                self.current_view_mode = "date" 
+
+        except mysql.connector.Error as e: QMessageBox.critical(self, "Błąd Ładowania Danych", f"Nie można załadować danych raportu: {e}")
+        except AttributeError: QMessageBox.warning(self, "Błąd Połączenia", "Brak aktywnego połączenia z bazą danych (load_report_data).")
+
+    def display_report_data_in_table(self, records):
+        # ... (BEZ ZMIAN) ...
+        self.tableModel.clear()
+        if not hasattr(self.tableView, 'horizontalHeader'): return
+        if not records:
+            self.tableModel.setHorizontalHeaderLabels(['Informacja'])
+            self.tableModel.appendRow([QStandardItem("Brak danych do wyświetlenia.")])
+            self.tableView.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            return
+        self.tableModel.setHorizontalHeaderLabels(['Kod PCB', 'Data Analizy', 'Liczba Komponentów'])
+        self.tableView.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tableView.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.tableView.setColumnWidth(1, 180) 
+        self.tableView.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.tableView.setColumnWidth(2, 160) 
+        for record in records:
+            pcb_item = QStandardItem(record['pcb_code'])
+            pcb_item.setData(record['pcb_code'], Qt.UserRole)
+            date_item = QStandardItem(record['date_analyzed'].strftime('%Y-%m-%d %H:%M:%S'))
+            date_item.setTextAlignment(Qt.AlignCenter)
+            count_item = QStandardItem(str(record['component_count']))
+            count_item.setTextAlignment(Qt.AlignCenter)
+            self.tableModel.appendRow([pcb_item, date_item, count_item])
+
+    def on_table_double_clicked(self, index: QModelIndex):
+        # ... (BEZ ZMIAN) ...
+        if not index.isValid(): return
+        current_headers = [self.tableModel.horizontalHeaderItem(i).text() for i in range(self.tableModel.columnCount()) if self.tableModel.horizontalHeaderItem(i)]
+        if 'Kod PCB' in current_headers:
+            pcb_code = self.tableModel.item(index.row(), 0).data(Qt.UserRole)
+            if pcb_code and hasattr(self, 'reportCodeCombo'):
+                combo_idx = self.reportCodeCombo.findData(pcb_code)
+                if combo_idx != -1: self.reportCodeCombo.setCurrentIndex(combo_idx) 
+                else:
+                    self.current_pcb_code = pcb_code
+                    self.display_pcb_components(pcb_code)
+        elif 'ID Komponentu' in current_headers:
+            full_id_text = self.tableModel.item(index.row(), 0).text()
+            comp_id_actual = full_id_text.split(" ", 1)[1] if " " in full_id_text else full_id_text 
+            comp_type = self.tableModel.item(index.row(), 1).text()
+            comp_score = self.tableModel.item(index.row(), 2).text()
+            QMessageBox.information(self, "Szczegóły Komponentu", f"PCB: {self.current_pcb_code}\nID: {comp_id_actual}\nTyp: {comp_type}\nWynik: {comp_score}")
+
+    
+    def generate_pdf_report(self):
+        if not self.current_pcb_code:
+            QMessageBox.warning(self, self._transliterate("Wybierz PCB"), self._transliterate("Najpierw wybierz kod PCB z listy."))
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(self, self._transliterate("Zapisz raport PDF"),
+                                                 f"Raport_PCB_{self.current_pcb_code}.pdf", "Pliki PDF (*.pdf)")
+        if not file_path: return
+        if not file_path.lower().endswith('.pdf'): file_path += '.pdf'
+
+        try:
+            doc = SimpleDocTemplate(file_path, pagesize=A4,
+                                    topMargin=1.5 * cm, bottomMargin=2.0 * cm,
+                                    leftMargin=1.5 * cm, rightMargin=1.5 * cm)
             
-            # Pobieramy podstawowe style
             styles = getSampleStyleSheet()
             
-            # Tworzymy własne style
+            # --- Definicje stylów dla PDF ---
             title_style = ParagraphStyle(
-                name='CustomTitle',
-                fontName=bold_font,
-                fontSize=16,
-                alignment=1,  # Center
-                spaceAfter=0.5*cm
-            )
+                name='ReportTitle', fontName=PDF_DEFAULT_FONT_BOLD, fontSize=18, alignment=1,
+                spaceAfter=0.5 * cm, textColor=reportlab_colors.HexColor("#333333"))
             
             subtitle_style = ParagraphStyle(
-                name='CustomSubtitle',
-                fontName=italic_font,
-                fontSize=12,
-                alignment=1,  # Center
-                spaceAfter=0.3*cm
+                name='ReportSubtitle', fontName=PDF_DEFAULT_FONT, fontSize=12, alignment=1,
+                spaceAfter=0.7 * cm, textColor=reportlab_colors.HexColor("#444444"))
+            
+            section_heading_style = ParagraphStyle(
+                name='SectionHeading', fontName=PDF_DEFAULT_FONT_BOLD, fontSize=13,
+                spaceBefore=0.7 * cm, spaceAfter=0.3 * cm, textColor=reportlab_colors.HexColor("#2c3e50"),
+                borderBottomWidth=0.5, borderBottomColor=reportlab_colors.HexColor("#bbbbbb"),
+                leftIndent=0, rightIndent=0, keepWithNext=1
             )
             
-            heading_style = ParagraphStyle(
-                name='CustomHeading',
-                fontName=bold_font,
-                fontSize=12,
-                spaceBefore=0.4*cm,
-                spaceAfter=0.2*cm
-            )
+            table_text_normal_style = ParagraphStyle(
+                name='TableTextNormal', fontName=PDF_DEFAULT_FONT, fontSize=9, leading=11,
+                textColor=reportlab_colors.black)
             
-            normal_style = ParagraphStyle(
-                name='CustomNormal',
-                fontName=standard_font,
-                fontSize=10,
-                spaceBefore=0.1*cm,
-                spaceAfter=0.1*cm
-            )
-            
-            # Elementy raportu
+            table_text_bold_style = ParagraphStyle(
+                name='TableTextBold', parent=table_text_normal_style, fontName=PDF_DEFAULT_FONT_BOLD)
+
+            table_text_normal_centered_style = ParagraphStyle(
+                name='TableTextNormalCentered', parent=table_text_normal_style, alignment=1)
+
+            annotation_style = ParagraphStyle(
+                name='AnnotationStyle', fontName='Helvetica-Oblique', fontSize=8, # Użycie bezpośrednio nazwy czcionki
+                textColor=reportlab_colors.HexColor("#444444"), alignment=0,
+                spaceBefore=0.4*cm)
+
             elements = []
-            
-            # Nagłówek raportu
-            elements.append(Paragraph("PCB ANALYSIS REPORT", title_style))
-            elements.append(Paragraph(f"PCB Code: {self.current_pcb_code}", subtitle_style))
-            elements.append(Spacer(1, 0.5*cm))
-            
-            # Pobierz dane PCB z bazy danych
-            try:
-                # Dane PCB
-                self.cursor.execute("""
-                    SELECT * FROM pcb_records 
-                    WHERE pcb_code = %s
-                """, (self.current_pcb_code,))
-                pcb_data = self.cursor.fetchone()
-                
-                # Dane komponentów
-                self.cursor.execute("""
-                    SELECT component_id, component_type, score, bbox 
-                    FROM components 
-                    WHERE pcb_code = %s
-                    ORDER BY component_type, score DESC
-                """, (self.current_pcb_code,))
-                components = self.cursor.fetchall()
-                
-                # Jeśli nie ma danych, wyświetl błąd
-                if not pcb_data or not components:
-                    QMessageBox.warning(self, "Brak danych", f"Nie znaleziono danych dla PCB o kodzie {self.current_pcb_code}")
+            elements.append(Paragraph(self._transliterate("RAPORT ANALIZY PŁYTKI PCB"), title_style))
+            elements.append(Paragraph(self._transliterate(f"Kod PCB: {self.current_pcb_code}"), subtitle_style))
+
+            if not self.conn or not self.conn.is_connected():
+                if hasattr(self, 'init_database_connection'):
+                    self.init_database_connection() 
+                else:
+                    QMessageBox.critical(self, self._transliterate("Błąd Bazy Danych"), self._transliterate("Brak połączenia z bazą danych."))
                     return
-                
-                # ===== SEKCJA 1: METADANE =====
-                elements.append(Paragraph("REPORT INFORMATION", heading_style))
-                
-                # Tabela metadanych
-                metadata = [
-                    ["PCB Code:", self.current_pcb_code],
-                    ["Analysis Date:", pcb_data['date_analyzed'].strftime("%Y-%m-%d %H:%M:%S")],
-                    ["Report Generation Date:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+            if not self.cursor:
+                 QMessageBox.critical(self, self._transliterate("Błąd Bazy Danych"), self._transliterate("Kursor bazy danych nie jest dostępny."))
+                 return
+            
+            self.cursor.execute("SELECT * FROM pcb_records WHERE pcb_code = %s", (self.current_pcb_code,))
+            pcb_data = self.cursor.fetchone()
+            
+            self.cursor.execute("SELECT component_id, score FROM components WHERE pcb_code = %s ORDER BY score ASC, component_id", (self.current_pcb_code,))
+            components_data = self.cursor.fetchall()
+
+            if not pcb_data:
+                QMessageBox.critical(self, self._transliterate("Błąd danych"), self._transliterate(f"Nie znaleziono danych rekordu dla PCB: {self.current_pcb_code}"))
+                return
+
+            elements.append(Paragraph(self._transliterate("INFORMACJE PODSTAWOWE"), section_heading_style))
+            meta_data_list = [
+                [Paragraph(self._transliterate("Kod PCB:"), table_text_bold_style), Paragraph(self._transliterate(str(self.current_pcb_code)), table_text_normal_style)],
+                [Paragraph(self._transliterate("Data analizy:"), table_text_bold_style), Paragraph(self._transliterate(pcb_data['date_analyzed'].strftime("%Y-%m-%d %H:%M:%S")), table_text_normal_style)],
+                [Paragraph(self._transliterate("Data generacji raportu:"), table_text_bold_style), Paragraph(self._transliterate(datetime.now().strftime("%Y-%m-%d %H:%M:%S")), table_text_normal_style)]
+            ]
+            if self.user_data:
+                user_name_surname = self._transliterate(f"{self.user_data.get('name', '')} {self.user_data.get('surname', '')}".strip())
+                meta_data_list.append([Paragraph(self._transliterate("Operator:"), table_text_bold_style), Paragraph(user_name_surname, table_text_normal_style)])
+                if self.user_data.get('position_name'):
+                    meta_data_list.append([Paragraph(self._transliterate("Stanowisko:"), table_text_bold_style), Paragraph(self._transliterate(self.user_data['position_name']), table_text_normal_style)])
+                if self.user_data.get('email'):
+                    meta_data_list.append([Paragraph(self._transliterate("Email operatora:"), table_text_bold_style), Paragraph(self._transliterate(self.user_data['email']), table_text_normal_style)])
+            
+            meta_table = Table(meta_data_list, colWidths=[doc.width * 0.30, doc.width * 0.70])
+            meta_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('GRID', (0, 0), (-1, -1), 0.5, reportlab_colors.HexColor("#cccccc")),
+                ('LEFTPADDING', (0,0),(-1,-1), 0), ('RIGHTPADDING', (0,0),(-1,-1), 0), 
+                ('BOTTOMPADDING', (0,0),(-1,-1), 2), ('TOPPADDING', (0,0),(-1,-1), 2)
+            ]))
+            elements.append(meta_table)
+
+            elements.append(Paragraph(self._transliterate("WYKRYTE KOMPONENTY"), section_heading_style))
+            
+            attention_required_for_note = False 
+
+            if components_data:
+                header_style_pdf_table = ParagraphStyle(name='HeaderCompTablePDF', parent=table_text_bold_style, alignment=0)
+                header_style_pdf_table_centered = ParagraphStyle(name='HeaderCompTableCenteredPDF', parent=header_style_pdf_table, alignment=1)
+
+                table_header_components_pdf = [
+                    Paragraph(self._transliterate("ID Komponentu"), header_style_pdf_table),
+                    Paragraph(self._transliterate("Wynik Oceny"), header_style_pdf_table_centered)
                 ]
                 
-                # Dodaj informacje o operatorze, jeśli dostępne
-                if self.user_data:
-                    metadata.append(["Operator:", f"{self.user_data['name']} {self.user_data['surname']}"])
-                    if self.user_data['position_name']:
-                        metadata.append(["Position:", self.user_data['position_name']])
-                    if self.user_data['email']:
-                        metadata.append(["Email:", self.user_data['email']])
+                styled_component_data = [table_header_components_pdf]
                 
-                # Tabela metadanych
-                meta_table = Table(metadata, colWidths=[doc.width*0.3, doc.width*0.7])
-                meta_table.setStyle(TableStyle([
-                    ('FONTNAME', (0, 0), (0, -1), bold_font),
-                    ('FONTNAME', (1, 0), (1, -1), standard_font),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                    ('TOPPADDING', (0, 0), (-1, -1), 6),
-                    ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                dynamic_styles_for_table = [
+                    ('BACKGROUND', (0, 0), (-1, 0), reportlab_colors.HexColor("#e0e0e0")),
+                    ('GRID', (0, 0), (-1, -1), 0.5, reportlab_colors.HexColor("#bbbbbb")),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ]))
-                
-                elements.append(meta_table)
-                elements.append(Spacer(1, 0.5*cm))
-                
-                # ===== SEKCJA 3: SZCZEGÓŁOWA LISTA KOMPONENTÓW =====
-                elements.append(Paragraph("DETAILS COMPONENTS LIST", heading_style))
-                
-                # Tworzymy tabelę z wszystkimi komponentami
-                all_components_data = [["ID", "Wynik"]]
-                
-                # Dodajemy wszystkie komponenty do tabeli
-                for comp in components:
-                    all_components_data.append([
-                        comp['component_id'],
-                        f"{comp['score']:.2f}"
+                    ('LEFTPADDING', (0,0), (-1,-1), 5), ('RIGHTPADDING', (0,0), (-1,-1), 5),
+                    ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3)
+                ]
+
+                for i, comp in enumerate(components_data):
+                    row_index_in_table_style = i + 1
+                    comp_id_raw = str(comp['component_id'])
+                    score_val = comp['score']
+                    score_text_pdf = f"{score_val:.2f}"
+                    id_prefix_pdf = ""
+                    current_id_text_style_pdf = table_text_normal_style
+                    current_score_text_style_pdf = table_text_normal_centered_style
+
+                    if score_val < 0.7:
+                        attention_required_for_note = True
+                        id_prefix_pdf = "(!) " 
+                        dynamic_styles_for_table.append(
+                            ('BACKGROUND', (0, row_index_in_table_style), (-1, row_index_in_table_style), reportlab_colors.orange)
+                        )
+                    
+                    id_display_pdf = self._transliterate(id_prefix_pdf + comp_id_raw)
+                    
+                    styled_component_data.append([
+                        Paragraph(id_display_pdf, current_id_text_style_pdf),
+                        Paragraph(self._transliterate(score_text_pdf), current_score_text_style_pdf)
                     ])
                 
-                # Tworzymy stylowaną tabelę komponentów
-                components_table = Table(all_components_data, colWidths=[doc.width*0.7, doc.width*0.3])
-                
-                # Podstawowy styl tabeli
-                table_style = [
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),  # Nagłówek
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-                    ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), bold_font),
-                    ('FONTSIZE', (0, 0), (-1, -1), 9),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                    ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ]
-                
-                # Ustawienie stylu tabeli
-                components_table.setStyle(TableStyle(table_style))
-                
-                elements.append(components_table)
-                
-                # Budowanie PDF
-                doc.build(elements)
-                
-                QMessageBox.information(self, "Sukces", f"Raport zapisany do {file_path}")
-                
-            except mysql.connector.Error as e:
-                print(f"Błąd bazy danych podczas generowania raportu: {e}")
-                QMessageBox.critical(self, "Błąd", f"Nie można wygenerować raportu: {e}")
-            except Exception as e:
-                print(f"Błąd podczas generowania raportu PDF: {e}")
-                traceback.print_exc()
-                QMessageBox.critical(self, "Błąd", f"Nie można wygenerować raportu PDF: {e}")
-        
-        except Exception as e:
-            print(f"Błąd tworzenia dokumentu PDF: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Błąd", f"Nie można utworzyć dokumentu PDF: {e}")
+                components_table_obj_pdf = Table(styled_component_data, colWidths=[doc.width * 0.65, doc.width * 0.35])
+                components_table_obj_pdf.setStyle(TableStyle(dynamic_styles_for_table))
+                elements.append(components_table_obj_pdf)
+            else:
+                elements.append(Paragraph(self._transliterate("Nie wykryto komponentów dla tej płytki PCB."), table_text_normal_style))
+            
+            if attention_required_for_note:
+                elements.append(Spacer(1, 0.4 * cm))
+                elements.append(Paragraph(self._transliterate("Uwaga: Elementy oznaczone kolorem pomarańczowym i/lub symbolem (!) mogą wymagać dodatkowej weryfikacji w celu zapewnienia dokładności analizy."), annotation_style))
 
-    def add_detailed_component_analysis(self, pcb_code, elements, styles, doc):
-        """Add detailed component analysis for a specific PCB"""
-        # Ta metoda nie jest już używana, nowa implementacja jest w generate_pdf_report
-        pass
+            doc.build(elements)
+            QMessageBox.information(self, self._transliterate("Sukces"), self._transliterate(f"Raport PDF został zapisany: {file_path}"))
+        
+        except mysql.connector.Error as e:
+            QMessageBox.critical(self, self._transliterate("Błąd Bazy Danych (PDF)"), self._transliterate(f"Nie można wygenerować raportu (baza danych): {e}"))
+            traceback.print_exc()
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, self._transliterate("Błąd Generowania PDF"), self._transliterate(f"Wystąpił nieoczekiwany błąd: {e}"))
+
+    def _transliterate(self, text):
+        """mapowanie polskich znaków"""
+        if not isinstance(text, str):
+            return text
+        
+        mapping = {
+            'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+            'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+            'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+            'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z',
+        }
+        for pl_char, lat_char in mapping.items():
+            text = text.replace(pl_char, lat_char)
+        return text
 
     def closeEvent(self, event):
-        """Handle window close event"""
-        try:
-            if hasattr(self, 'conn') and self.conn:
-                self.cursor.close()
-                self.conn.close()
-        except:
-            pass
+        if hasattr(self, 'dateTimeTimer'): self.dateTimeTimer.stop()
+        self._close_db_connection() 
         event.accept()
 
     def refresh_data(self):
-        """Odświeża dane w tabeli na podstawie bieżących ustawień"""
-        if self.current_pcb_code:
-            # Jeśli wybrany jest konkretny kod PCB, odśwież jego dane
-            self.load_specific_report(self.current_pcb_code)
-            # Odśwież również dane komponentów
-            self.display_pcb_components(self.current_pcb_code)
-        else:
-            # W przeciwnym razie odśwież wszystkie dane
-            self.load_report_data()
-        
-        # Odśwież listę dostępnych kodów PCB
-        self.load_report_codes()
-        
-        QMessageBox.information(self, "Odświeżanie", "Dane zostały odświeżone pomyślnie.")
+        try:
+            self.init_database_connection() 
+            
+            if not hasattr(self, 'reportCodeCombo') or not hasattr(self, 'dateEdit'): 
+                print("BŁĄD: Nie można odświeżyć, brak reportCodeCombo lub dateEdit.")
+                return
+
+            previously_selected_pcb_code_in_combo = self.reportCodeCombo.currentData()
+            self.load_report_codes() 
+
+            self.dateEdit.setStyleSheet("")
+            
+            active_view_mode = getattr(self, 'current_view_mode', "date") 
+
+            if active_view_mode == "all":
+                self.load_all_pcb_data()
+            elif active_view_mode == "components" and self.current_pcb_code:
+                if self.reportCodeCombo.findData(self.current_pcb_code) != -1:
+                    self.display_pcb_components(self.current_pcb_code)
+                else: 
+                    self.reportCodeCombo.setCurrentIndex(0) 
+            else: 
+                if self.reportCodeCombo.currentIndex() != 0 : 
+                     self.reportCodeCombo.setCurrentIndex(0) 
+                else: 
+                    self.current_pcb_code = None
+                    self.load_report_data() 
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Błąd Odświeżania", f"Wystąpił błąd podczas odświeżania danych: {e}")
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    report_dialog = Reports() 
+    report_dialog.show()
+    sys.exit(app.exec_())
