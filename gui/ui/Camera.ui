@@ -707,6 +707,24 @@ QToolTip {
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="save_button_comparision">
+          <property name="geometry">
+           <rect>
+            <x>1000</x>
+            <y>400</y>
+            <width>150</width>
+            <height>30</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Zapisz porownanie komponentow</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="save_button">
           <property name="geometry">
            <rect>
