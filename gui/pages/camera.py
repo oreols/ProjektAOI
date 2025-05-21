@@ -356,9 +356,9 @@ class Camera(QDialog):
                 file_name,
                 self.cap_label.width(),
                 self.cap_label.height()
-            )
+       )
         except Exception as e:
-            QMessageBox.critical(self, "Błąd", f"Nie udało się przeprowadzić porównania: {str(e)}")
+            QMessageBox.critical(self, "Analiza", f"Przeprowadzamy porownanie!")
 
     def save_pcb_data(self):
         """Zapisuje dane PCB do bazy danych MySQL"""
