@@ -1,16 +1,25 @@
-Dioda.png: [None°] -> (brak tekstu)
-Kondensator_1.png: [None°] -> (brak tekstu)
+Dioda_1.png: [None°] -> (brak tekstu)
+Dioda_2.png: [None°] -> (brak tekstu)
+Dioda_3.png: [None°] -> (brak tekstu)
+Dioda_4.png: [None°] -> (brak tekstu)
+Kondensator_1.png: [270°] -> 5L7J
 Kondensator_2.png: [None°] -> (brak tekstu)
 Kondensator_3.png: [None°] -> (brak tekstu)
 Kondensator_4.png: [None°] -> (brak tekstu)
-Przycisk.png: [None°] -> (brak tekstu)
-Przycisk_1.png: [None°] -> (brak tekstu)
+Kondensator_5.png: [None°] -> (brak tekstu)
+Kondensator_6.png: [None°] -> (brak tekstu)
+Kondensator_7.png: [None°] -> (brak tekstu)
+Kondensator_8.png: [None°] -> (brak tekstu)
+Kondensator_9.png: [None°] -> (brak tekstu)
+Przycisk_1.png: [90°] -> C475
 Przycisk_2.png: [None°] -> (brak tekstu)
 Rezonator_1.png: [None°] -> (brak tekstu)
 Rezystor_1.png: [None°] -> (brak tekstu)
+Rezystor_2.png: [270°] -> 102
 Uklad scalony_1.png: [None°] -> (brak tekstu)
-USB.png: [None°] -> (brak tekstu)
+Uklad scalony_2.png: [0°] -> UEUPCPBACKOH
 USB_1.png: [None°] -> (brak tekstu)
 Zlacze_1.png: [None°] -> (brak tekstu)
 Zlacze_2.png: [None°] -> (brak tekstu)
-Zlacze_3.png: [0°] -> 064
+Zlacze_3.png: [180°] -> 37OH3
+Zlacze_4.png: [None°] -> (brak tekstu)

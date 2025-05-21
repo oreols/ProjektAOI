@@ -1,4 +1,22 @@
-===== Dioda.png =====
+===== Dioda_1.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Dioda_2.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Dioda_3.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Dioda_4.png =====
 Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
@@ -6,14 +24,14 @@ Rotacja 270°: (brak tekstu)
 
 ===== Kondensator_1.png =====
 Rotacja 0°: (brak tekstu)
-Rotacja 90°: (brak tekstu)
+Rotacja 90°: C475 )
 Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 270°: 5L7J
 
 ===== Kondensator_2.png =====
 Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
-Rotacja 180°: (brak tekstu)
+Rotacja 180°: 75
 Rotacja 270°: (brak tekstu)
 
 ===== Kondensator_3.png =====
@@ -23,12 +41,36 @@ Rotacja 180°: (brak tekstu)
 Rotacja 270°: (brak tekstu)
 
 ===== Kondensator_4.png =====
-Rotacja 0°: {380t
+Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
 Rotacja 270°: (brak tekstu)
 
-===== Przycisk.png =====
+===== Kondensator_5.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Kondensator_6.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Kondensator_7.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Kondensator_8.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: (brak tekstu)
+
+===== Kondensator_9.png =====
 Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
@@ -36,14 +78,14 @@ Rotacja 270°: (brak tekstu)
 
 ===== Przycisk_1.png =====
 Rotacja 0°: (brak tekstu)
-Rotacja 90°: (brak tekstu)
+Rotacja 90°: C475
 Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 270°: 527)
 
 ===== Przycisk_2.png =====
-Rotacja 0°: (brak tekstu)
+Rotacja 0°: 3wi6 }
 Rotacja 90°: (brak tekstu)
-Rotacja 180°: (brak tekstu)
+Rotacja 180°: 3ha {l
 Rotacja 270°: (brak tekstu)
 
 ===== Rezonator_1.png =====
@@ -56,7 +98,13 @@ Rotacja 270°: (brak tekstu)
 Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 270°: 2
+
+===== Rezystor_2.png =====
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: 2
+Rotacja 180°: (brak tekstu)
+Rotacja 270°: 102
 
 ===== Uklad scalony_1.png =====
 Rotacja 0°: (brak tekstu)
@@ -64,17 +112,17 @@ Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
 Rotacja 270°: (brak tekstu)
 
-===== USB.png =====
-Rotacja 0°: (brak tekstu)
-Rotacja 90°: (brak tekstu)
+===== Uklad scalony_2.png =====
+Rotacja 0°: UEUPCPBACKOH
+Rotacja 90°: Le
 Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 270°: 5 |
 
 ===== USB_1.png =====
-Rotacja 0°: 'Gav
+Rotacja 0°: JekODEACOnC Levct
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 270°: 1
 
 ===== Zlacze_1.png =====
 Rotacja 0°: (brak tekstu)
@@ -83,13 +131,19 @@ Rotacja 180°: (brak tekstu)
 Rotacja 270°: (brak tekstu)
 
 ===== Zlacze_2.png =====
-Rotacja 0°: {32.,
-Rotacja 90°: @
-Rotacja 180°: (brak tekstu)
-Rotacja 270°: (brak tekstu)
+Rotacja 0°: (brak tekstu)
+Rotacja 90°: (G 0+
+Rotacja 180°: 'J %
+Rotacja 270°: mj
 
 ===== Zlacze_3.png =====
-Rotacja 0°: 064
+Rotacja 0°: HOL
+Rotacja 90°: (brak tekstu)
+Rotacja 180°: 37OH3
+Rotacja 270°: (brak tekstu)
+
+===== Zlacze_4.png =====
+Rotacja 0°: (brak tekstu)
 Rotacja 90°: (brak tekstu)
 Rotacja 180°: (brak tekstu)
 Rotacja 270°: (brak tekstu)
