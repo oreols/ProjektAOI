@@ -1,0 +1,8 @@
+resonator: 0.95 mAP
+resistor: 0.9 mAP
+ic: 0.94 mAP
+dioda: 0.9 mAP
+złącza: 0.93 mAP
+kondesatory: 0.82 mAP 
+przycisk: 0.97 mAP
+usb: 0.95

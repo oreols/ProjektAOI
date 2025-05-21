@@ -570,6 +570,30 @@ QToolTip {
            </layout>
           </item>
           <item>
+           <layout class="QHBoxLayout" name="compareAllLayout">
+            <property name="spacing">
+             <number>8</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="comparision_button">
+              <property name="text">
+               <string>Porownanie komponentow</string>
+              </property>
+              <property name="toolTip">
+               <string>Porownaj czy komponenty wykryte w modelu pasuja do pozycji pos</string>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">
+                background-color: #7289da; 
+                color: white;
+                font-weight: 500;
+               </string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
            <layout class="QHBoxLayout" name="preprocessingLayout">
             <property name="spacing">
              <number>8</number>
@@ -679,6 +703,24 @@ QToolTip {
           </property>
           <property name="horizontalScrollBarPolicy">
            <enum>Qt::ScrollBarAlwaysOff</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="save_button_comparision">
+          <property name="geometry">
+           <rect>
+            <x>1000</x>
+            <y>400</y>
+            <width>150</width>
+            <height>30</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Zapisz porownanie komponentow</string>
+          </property>
+          <property name="enabled">
+           <bool>false</bool>
           </property>
          </widget>
         </item>

@@ -93,6 +93,7 @@ class LoadingOverlay(QWidget):
         # Ustaw zapętlenie animacji
         self.animation_group.setLoopCount(-1)  # -1 oznacza zapętlenie w nieskończoność
         self.animation_group.start()
+        model_bboxes = []
     
     def update_animation(self):
         """Aktualizuje animację kropek"""
@@ -233,9 +234,8 @@ class Camera(QDialog):
         self.clear_image_button.clicked.connect(self.clear_image)
         self.pos_file.clicked.connect(self.on_pos_file_click)
         self.mirror_button.clicked.connect(self.toggle_mirror)
-
-
-
+        self.comparision_button.clicked.connect(self.on_comparision_click)
+        self.save_button_comparision.clicked.connect(self.save_pcb_data_comparision)
         
         # Zmiana tekstu przycisku aby odzwierciedlał jego nową funkcję
         self.virtual_cam_button.setText("Wczytaj zdjęcie")
@@ -331,6 +331,35 @@ class Camera(QDialog):
             print(f"Błąd podczas inicjalizacji bazy danych: {e}")
             QMessageBox.critical(self, "Błąd", f"Nie udało się zainicjalizować bazy danych: {e}")
 
+    def on_comparision_click(self):
+        """
+        Obsługuje kliknięcie przycisku porównania, uruchamiając nakładanie bboxów z pliku POS
+        i porównanie z wykrytymi komponentami.
+        """
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+        
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz plik POS", "", 
+            "Pliki CSV (*.csv);;Wszystkie pliki (*)", 
+            options=options
+        )
+        
+        if not file_name:
+            return
+        
+        try:
+            self.bbox_matches_pos(
+                self.preprocessed_frame,
+                file_name,
+                self.cap_label.width(),
+                self.cap_label.height()
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Nie udało się przeprowadzić porównania: {str(e)}")
+
     def save_pcb_data(self):
         """Zapisuje dane PCB do bazy danych MySQL"""
         if not self.bboxes:
@@ -411,6 +440,108 @@ class Camera(QDialog):
         else:
             QMessageBox.critical(self, "Błąd", f"Nie znaleziono modelu: {model_path}")
 
+    def save_pcb_data_comparision(self):
+        """Zapisuje dane PCB do bazy danych MySQL, obsługując detekcje, analizy wszystkich komponentów oraz porównania bounding boxów."""
+        # Sprawdź, czy mamy jakieś dane do zapisania
+        has_detections = (hasattr(self, 'all_detections') and self.all_detections) or self.bboxes
+        has_comparisons = hasattr(self, 'bbox_comparison_results') and self.bbox_comparison_results
+
+        if not (has_detections or has_comparisons):
+            QMessageBox.warning(self, "Uwaga", "Brak danych do zapisania!")
+            return
+
+        # Pobierz kod PCB od użytkownika
+        pcb_code, ok = QInputDialog.getText(
+            self, 'Kod PCB', 
+            'Wprowadź kod PCB:',
+            text=f"PCB-{datetime.now().strftime('%Y%m%d')}-{len(self.bbox_comparison_results) if has_comparisons else (len(self.all_detections) if hasattr(self, 'all_detections') else len(self.bboxes))}"
+        )
+
+        if not ok or not pcb_code:
+            return
+
+        try:
+            # Zapisz obraz
+            image_dir = "saved_images"
+            if not os.path.exists(image_dir):
+                os.makedirs(image_dir)
+
+            image_path = os.path.join(image_dir, f"{pcb_code}.jpg")
+            if self.frozen_frame is not None:
+                cv2.imwrite(image_path, self.frozen_frame)
+            elif self.preprocessed_frame is not None:
+                cv2.imwrite(image_path, self.preprocessed_frame)
+            else:
+                QMessageBox.critical(self, "Błąd", "Brak obrazu do zapisania!")
+                return
+
+            # Zapisz dane PCB
+            self.cursor.execute('''
+                INSERT INTO pcb_records (pcb_code, date_analyzed, image_path)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE date_analyzed=%s, image_path=%s
+            ''', (pcb_code, datetime.now(), image_path, datetime.now(), image_path))
+
+            # Zapisz detekcje (jeśli istnieją)
+            if has_detections:
+                detections_to_save = self.all_detections if (hasattr(self, 'all_detections') and self.all_detections) else self.bboxes
+                for detection in detections_to_save:
+                    if 'component_type' in detection:
+                        component_type = detection['component_type']
+                    else:
+                        component_type = self.component.currentText()
+
+                    component_id = detection.get('id', f"{component_type}_{len(detections_to_save)}")
+                    score = detection.get('score', 0.0)
+                    bbox = detection.get('bbox', (0, 0, 0, 0))
+
+                    self.cursor.execute('''
+                        INSERT INTO components (pcb_code, component_id, component_type, score, bbox)
+                        VALUES (%s, %s, %s, %s, %s)
+                    ''', (
+                        pcb_code,
+                        component_id,
+                        component_type,
+                        score,
+                        str(bbox)
+                    ))
+
+            # Zapisz wyniki porównania (jeśli istnieją)
+            if has_comparisons:
+                for comparison in self.bbox_comparison_results:
+                    self.cursor.execute('''
+                        INSERT INTO bbox_comparisons (
+                            pcb_code, comparison_id, model_1_name, model_2_name, 
+                            component_type, iou_score, bbox_1, bbox_2, position_diff, size_diff
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (
+                        pcb_code,
+                        comparison['comparison_id'],
+                        comparison['model_1_name'],
+                        comparison['model_2_name'],
+                        comparison['component_type'],
+                        comparison['iou_score'],
+                        str(comparison['bbox_1']),
+                        str(comparison['bbox_2']),
+                        comparison['position_diff'],
+                        comparison['size_diff']
+                    ))
+
+            self.conn.commit()
+            QMessageBox.information(self, "Sukces", f"Dane PCB {pcb_code} zostały zapisane!")
+
+            # Odśwież historię jeśli jest otwarta
+            for widget in QApplication.topLevelWidgets():
+                if widget.__class__.__name__ == "History":
+                    widget.load_pcb_data()
+                    print("Odświeżono historię po zapisie")
+
+        except mysql.connector.IntegrityError:
+            QMessageBox.warning(self, "Błąd", "PCB o takim kodzie już istnieje!")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Wystąpił błąd podczas zapisywania: {e}")
+            self.conn.rollback()
 
     def change_model(self, selected_component):
         if selected_component in self.model_paths:
@@ -1419,7 +1550,6 @@ class Camera(QDialog):
         print(f"Skala: {scale_x} x {scale_y}")
         print(f"Marginesy: {self.margin_x} x {self.margin_y}")
 
-
         # Kopia obrazu do rysowania
         result = self.preprocessed_frame.copy()
 
@@ -1450,6 +1580,16 @@ class Camera(QDialog):
                 # Rysowanie punktu na obrazie
                 cv2.circle(result, (pixel_x, pixel_y), 8, (0, 0, 255), -1)
 
+                # Powiększenie rozmiaru bbox o 2.5 razy
+                bbox_size = 12 * 2.5  # Powiększenie rozmiaru o 2.5 razy
+                bbox_half_size = int(bbox_size / 2)
+
+                # Rysowanie powiększonego bounding boxa wokół punktu
+                cv2.rectangle(result, 
+                              (pixel_x - bbox_half_size, pixel_y - bbox_half_size), 
+                              (pixel_x + bbox_half_size, pixel_y + bbox_half_size), 
+                              (0, 255, 0), 2)  # Bbox w kolorze zielonym
+
                 # Opcjonalnie: Rysowanie napisu 'Ref' obok punktu
                 cv2.putText(result, ref, (pixel_x + 8, pixel_y - 5), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1, cv2.LINE_AA)
@@ -1459,7 +1599,556 @@ class Camera(QDialog):
         self.overlayed_frame = result.copy()
         self.show_frame(result, "Obraz z nałożonymi markerami POS")
 
+    
+    def bbox_matches_pos(self, preprocessed_frame, pos_file_path, target_width, target_height, pcb_width_mm=43.18, pcb_height_mm=17.78):
+        """
+        Nakłada same bboxy z pliku POS na obraz płytki PCB i zapisuje je do self.pos_bboxes.
+        """
+        # 🧩 Mapowanie nazw z POS na klasy modelowe
+        component_name_map = {
+            "J1": "Zlacze",
+            "J2": "Zlacze",
+            "J3": "Zlacze",
+            "J4": "Zlacze",
+            "SW1": "Przycisk",
+            "IC3": "Uklad scalony",
+            "U$4": "Uklad scalony",
+            "U$5": "Uklad scalony",
+            "Y1": "Rezonator",
+            "D+0": "USB",
+            "D-0": "USB",
+            "RX0": "Dioda",
+            "TX0": "Dioda",
+            "L0": "Dioda",
+            "PWR0": "Dioda",
+            "FRAME1": "Rezystor",
+            "UNK_HOLE_0": "Zlacze",
+            "UNK_HOLE_1": "Zlacze",
+            "UNK_HOLE_2": "Zlacze",
+            "UNK_HOLE_3": "Zlacze",
+            "C1": "Kondensator", 
+            "C2": "Kondensator"
+        }
 
+        self.pos_file_path = pos_file_path
+        self.load_and_preprocess_image(preprocessed_frame)
+
+        print("Rozpoczynam nakładanie bboxów z POS...")
+        print(f"Rozmiar płytki: {pcb_width_mm} mm x {pcb_height_mm} mm")
+        print(f"Rozmiar okna: {target_width} x {target_height} pikseli")
+
+        resized_h, resized_w, _ = self.preprocessed_frame.shape
+        scale_x = resized_w / pcb_width_mm
+        scale_y = resized_h / pcb_height_mm
+
+        print(f"Skala: {scale_x} x {scale_y}")
+        print(f"Marginesy: {self.margin_x} x {self.margin_y}")
+
+        result = self.preprocessed_frame.copy()
+        self.pos_bboxes = []  # <----- 🆕 Lista bboxów z POS
+
+        with open(pos_file_path, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                try:
+                    pos_x_mm = float(row["PosX"]) - 126.873
+                    pos_y_mm = float(row["PosY"]) + 96.114
+                    ref = row["Ref"]
+                    print(f"Wartości z POS: {ref} ({pos_x_mm}, {pos_y_mm})")
+                except (ValueError, KeyError):
+                    continue
+
+                # 🧠 Mapowanie ref na kategorię komponentu
+                mapped_component = component_name_map.get(ref, ref)
+                print(f"Mapowanie POS {ref} na komponent: {mapped_component}")
+
+                if self.is_mirrored:
+                    pixel_x = int((pcb_width_mm - pos_x_mm) * scale_x)
+                    print(f"Stosowanie odbicia lustrzanego dla POS {ref}")
+                else:
+                    pixel_x = int(pos_x_mm * scale_x)
+
+                pixel_y = int(resized_h - (pos_y_mm + pcb_height_mm) * scale_y)
+                print(f"Współrzędne w pikselach dla {ref}: ({pixel_x}, {pixel_y})")
+
+                bbox_size = 12 * 2.5
+                bbox_half_size = int(bbox_size / 2)
+
+                top_left = (pixel_x - bbox_half_size, pixel_y - bbox_half_size)
+                bottom_right = (pixel_x + bbox_half_size, pixel_y + bbox_half_size)
+
+                # 🟩 Rysuj bbox z POS
+                #try:
+                 #   cv2.rectangle(result, top_left, bottom_right, (0, 255, 0), 2)
+                  #  cv2.putText(result, ref, (pixel_x + 8, pixel_y - 5),
+                   #             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1, cv2.LINE_AA)
+                    #print(f"bbox_matches_pos: Narysowano bbox POS {ref} w ({top_left[0]}, {top_left[1]}) - ({bottom_right[0]}, {bottom_right[1]})")
+                #except Exception as e:
+                 #   print(f"bbox_matches_pos: Błąd rysowania bbox POS {ref}: {e}")
+
+                # 🧠 Zapisz bbox do listy
+                self.pos_bboxes.append({
+                    'component': mapped_component,
+                    'x': top_left[0],
+                    'y': top_left[1],
+                    'w': bbox_half_size * 2,
+                    'h': bbox_half_size * 2
+                })
+
+        print(f"POS bboxes załadowane: {[b['component'] for b in self.pos_bboxes]}")
+
+        self.pos_putted_on = True
+        self.overlayed_frame = result.copy()
+        self.show_frame(result, "Obraz z nałożonymi bboxami POS")
+
+        print("Przed wywołaniem analyze_all_components...")
+        self.analyze_all_components_compare()
+        print("Po wywołaniu analyze_all_components, wywołuję porownaj_bboxy...")
+        self.porownaj_bboxy()
+
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+
+        if hasattr(self, 'workers') and self.workers:
+            QMessageBox.warning(self, "Uwaga", "Analiza jest już w toku!")
+            return
+
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            analyze_frame = self.overlayed_frame.copy()
+        else:
+            analyze_frame = self.preprocessed_frame.copy()
+
+        self.analyze_all_button.setText("Analizowanie...")
+        self.analyze_all_button.setEnabled(False)
+
+        self.loading_overlay = LoadingOverlay(self)
+        self.loading_overlay.show()
+
+        components = list(self.model_paths.keys())
+        models_to_process = []
+
+        for component_name in components:
+            model_path = self.model_paths[component_name]
+            confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
+
+            try:
+                model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(state_dict)
+                model.to(self.device)
+                model.eval()
+
+                models_to_process.append({
+                    'model': model,
+                    'component_name': component_name,
+                    'confidence_threshold': confidence_threshold
+                })
+
+            except Exception as e:
+                print(f"Błąd podczas ładowania modelu {component_name}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        self.all_detections = []
+        self.bboxes = []
+        self.workers = []
+
+        for model_info in models_to_process:
+            output_dir = "output_components"
+            os.makedirs(output_dir, exist_ok=True)
+
+            worker = DetectionWorker(
+                model_info['model'],
+                analyze_frame,
+                model_info['component_name'],
+                model_info['confidence_threshold'],
+                self.device,
+                output_dir,
+                self.component_counter,
+            )
+            worker.finished.connect(self.handle_detection)
+            self.workers.append(worker)
+            worker.start()
+
+        self.check_workers_timer = QTimer()
+        self.check_workers_timer.timeout.connect(self.check_workers_compare)
+        self.check_workers_timer.start(1000)
+
+        self.pos_putted_on = True
+        self.overlayed_frame = result.copy()
+
+        # 🆕 Rysowanie bboxów modelu na końcu, po wszystkich operacjach
+        print(f"bbox_matches_pos: Liczba bboxów modelu w self.bboxes po analizie: {len(self.bboxes)}")
+        drawn_model_bboxes = 0
+        for bbox in self.bboxes:
+            x1, y1, x2, y2 = bbox["bbox"]
+            color = bbox.get("color", (0, 0, 255))  # Czerwony kolor dla bboxów modelu
+            try:
+                cv2.rectangle(result, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(result, bbox["id"], (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 1, cv2.LINE_AA)
+                drawn_model_bboxes += 1
+                print(f"bbox_matches_pos: Narysowano bbox modelu {bbox['id']} w ({x1}, {y1}) - ({x2}, {y2})")
+            except Exception as e:
+                print(f"bbox_matches_pos: Błąd rysowania bbox modelu {bbox['id']}: {e}")
+
+        print(f"bbox_matches_pos: Narysowano {drawn_model_bboxes} bboxów modelu na końcu")
+        if drawn_model_bboxes != len(self.bboxes):
+            print(f"bbox_matches_pos: UWAGA: Nie wszystkie bboxy modelu zostały narysowane! Oczekiwano: {len(self.bboxes)}, narysowano: {drawn_model_bboxes}")
+
+        self.show_frame(result, "Obraz z nałożonymi bboxami POS i modelu po zakończeniu analizy")
+
+
+    def calculate_iou(self, box1, box2):
+        x1, y1, w1, h1 = box1['x'], box1['y'], box1['w'], box1['h']
+        x2, y2, w2, h2 = box2['x'], box2['y'], box2['w'], box2['h']
+        x1_end, y1_end = x1 + w1, y1 + h1
+        x2_end, y2_end = x2 + w2, y2 + h2
+
+        x_inter = max(0, min(x1_end, x2_end) - max(x1, x2))
+        y_inter = max(0, min(y1_end, y2_end) - max(y1, y2))
+        inter_area = x_inter * y_inter
+
+        area1 = w1 * h1
+        area2 = w2 * h2
+        union_area = area1 + area2 - inter_area
+
+        return inter_area / union_area if union_area > 0 else 0
+
+    #def calculate(self, box1, box2):
+        
+
+    def visualize_bboxes(self, image, model_bboxes, pos_bboxes, output_path="bbox_comparison.png"):
+        """Visualizes model and POS bounding boxes on the image for debugging."""
+        # Validate the input image
+        if image is None or not isinstance(image, np.ndarray):
+            print(f"Error: Invalid image provided to visualize_bboxes. Type: {type(image)}, Value: {image}")
+            return None
+
+        # Ensure the image has the correct shape (height, width, channels)
+        #if len(image.shape) != 3 or image.shape[2] not in (3, 4):
+         #   print(f"Error: Image has invalid shape: {image.shape}. Expected (height, width, 3) or (height, width, 4).")
+          #  return None
+
+        vis_image = image.copy()
+        
+        # Draw model bounding boxes (red)
+        #for box in model_bboxes:
+         #   x, y, w, h = box['x'], box['y'], box['w'], box['h']
+          #  cv2.rectangle(vis_image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+           # cv2.putText(vis_image, f"{box['component']} ({box['confidence']:.2f})", 
+            #            (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        
+        # Draw POS bounding boxes (green)
+        #for box in pos_bboxes:
+         #   x, y, w, h = box['x'], box['y'], box['w'], box['h']
+          #  cv2.rectangle(vis_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+           # cv2.putText(vis_image, box['component'], (x, y + h + 20), 
+            #            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        
+        # Save and return the visualized image
+        cv2.imwrite(output_path, vis_image)
+        print(f"Visualization saved to {output_path}")
+        return vis_image
+
+    def do_bboxes_intersect(self, box1, box2):
+        """Check if two bounding boxes intersect (overlap by at least one pixel)."""
+        x1, y1, w1, h1 = box1['x'], box1['y'], box1['w'], box1['h']
+        x2, y2, w2, h2 = box2['x'], box2['y'], box2['w'], box2['h']
+        
+        x1_right = x1 + w1
+        y1_bottom = y1 + h1
+        x2_right = x2 + w2
+        y2_bottom = y2 + h2
+        
+        # Standard intersection (requires overlap in both x and y)
+        intersect_standard = not (x1_right < x2 or x2_right < x1 or y1_bottom < y2 or y2_bottom < y1)
+        
+        # New condition: x-ranges fully overlap (one box's x-range is entirely within the other)
+        x_overlap_full = (x1 >= x2 and x1_right <= x2_right) or (x2 >= x1 and x2_right <= x1_right)
+        
+        # Consider overlap if either standard intersection OR x-ranges fully overlap
+        intersect = intersect_standard or x_overlap_full
+        
+        print(f"Intersection check: {box1['component']} ({x1},{y1},{w1},{h1}) vs {box2['component']} ({x2},{y2},{w2},{h2}) = {intersect}")
+        print(f"  Ranges: x1={x1}-{x1_right}, x2={x2}-{x2_right}, y1={y1}-{y1_bottom}, y2={y2}-{y2_bottom}")
+        return intersect
+
+    def porownaj_bboxy(self):
+        print(f"Debug: model_bboxes = {self.model_bboxes}")
+        print(f"Debug: pos_bboxes = {self.pos_bboxes}")
+        
+        if not self.model_bboxes or not self.pos_bboxes:
+            print("Błąd: Brak danych do porównania (model_bboxes lub pos_bboxes puste).")
+            QMessageBox.warning(self, "Błąd", "Brak danych do porównania bboxów.")
+            return
+
+        matched = []
+        unmatched_model = self.model_bboxes.copy()
+        unmatched_pos = self.pos_bboxes.copy()
+        unmatched_with_comparison = []  # Track unmatched comparisons
+        unmatched_no_comparison = []  # Track model boxes with no comparison
+
+        # Compare each model bbox with each POS bbox
+        i = 0
+        while i < len(unmatched_model):
+            model_box = unmatched_model[i]
+            component = model_box['component']
+            matched_with_pos = False
+            # Find POS boxes with the same component type
+            matching_pos_boxes = [pos_box for pos_box in unmatched_pos if pos_box['component'] == component]
+            
+            if not matching_pos_boxes:
+                # No POS boxes to compare with
+                unmatched_no_comparison.append(model_box)
+                i += 1
+                continue
+
+            j = 0
+            while j < len(unmatched_pos):
+                pos_box = unmatched_pos[j]
+                if model_box['component'] == pos_box['component']:
+                    if self.do_bboxes_intersect(model_box, pos_box):
+                        matched.append({
+                            'model_box': model_box,
+                            'pos_box': pos_box
+                        })
+                        print(f"Dopasowanie: {model_box['component']} (model: {model_box['x']},{model_box['y']}, w={model_box['w']}, h={model_box['h']}) "
+                            f"z POS: {pos_box['component']} (POS: {pos_box['x']},{pos_box['y']}, w={pos_box['w']}, h={pos_box['h']})")
+                        unmatched_model.pop(i)
+                        unmatched_pos.pop(j)
+                        matched_with_pos = True
+                        break
+                    else:
+                        unmatched_with_comparison.append((model_box, pos_box))
+                        j += 1
+                else:
+                    j += 1
+            if not matched_with_pos:
+                i += 1
+
+        # Print unmatched boxes
+        for box in unmatched_model:
+            print(f"Niezrównany model: {box['component']} ({box['x']},{box['y']}, w={box['w']}, h={box['h']})")
+        for box in unmatched_pos:
+            print(f"Niezrównany POS: {box['component']} ({box['x']},{box['y']}, w={box['w']}, h={box['h']})")
+
+        # Format the results for display in resultsLabel
+        result_text = "Wyniki analizy:\n\n"
+
+        # Matched elements
+        if matched:
+            result_text += "Dopasowane elementy:\n"
+            for match in matched:
+                model_box = match['model_box']
+                pos_box = match['pos_box']
+                result_text += (f"- {model_box['component']} (model: {model_box['x']},{model_box['y']}, w={model_box['w']}, h={model_box['h']}) "
+                                f"dopasowano z {pos_box['component']} (POS: {pos_box['x']},{pos_box['y']}, w={pos_box['w']}, h={pos_box['h']})\n")
+        else:
+            result_text += "Brak dopasowanych elementów.\n"
+
+        # Unmatched elements with comparison
+        if unmatched_with_comparison:
+            result_text += "\nNiedopasowane elementy (miały porównanie):\n"
+            # To avoid duplicates, we'll only show the last comparison for each unmatched model box
+            seen_models = set()
+            for model_box, pos_box in unmatched_with_comparison:
+                model_id = id(model_box)
+                if model_id not in seen_models and model_box in unmatched_model:
+                    result_text += (f"- {model_box['component']} (model: {model_box['x']},{model_box['y']}, w={model_box['w']}, h={model_box['h']}) "
+                                    f"porównano z {pos_box['component']} (POS: {pos_box['x']},{pos_box['y']}, w={pos_box['w']}, h={pos_box['h']}), ale brak dopasowania\n")
+                    seen_models.add(model_id)
+        else:
+            result_text += "\nBrak niedopasowanych elementów z porównaniem.\n"
+
+        # Unmatched elements with no comparison
+        if unmatched_no_comparison:
+            result_text += "\nNiedopasowane elementy (brak porównania):\n"
+            for model_box in unmatched_no_comparison:
+                result_text += (f"- {model_box['component']} (model: {model_box['x']},{model_box['y']}, w={model_box['w']}, h={model_box['h']}) "
+                                f"nie miało porównania\n")
+        else:
+            result_text += "\nBrak elementów bez porównania.\n"
+
+        # Update the resultsLabel text
+        self.resultsLabel.setText(result_text)
+
+        # Select the base image for visualization
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            base_image = self.overlayed_frame.copy()
+        elif hasattr(self, 'preprocessed_frame') and self.preprocessed_frame is not None:
+            base_image = self.preprocessed_frame.copy()
+        else:
+            print("Error: No valid image available for visualization.")
+            QMessageBox.warning(self, "Błąd", "Brak obrazu do wizualizacji bboxów.")
+            return
+
+        # Visualize the unmatched bounding boxes and model bboxes
+        print(f"porownaj_bboxy: Liczba bboxów modelu do wizualizacji: {len(self.model_bboxes)}")
+        drawn_model_bboxes = 0
+        for model_box in self.model_bboxes:
+            x1 = model_box['x']
+            y1 = model_box['y']
+            x2 = x1 + model_box['w']
+            y2 = y1 + model_box['h']
+            color = (0, 0, 255)  # Czerwony kolor dla bboxów modelu
+            try:
+                cv2.rectangle(base_image, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(base_image, model_box['component'], (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 1, cv2.LINE_AA)
+                drawn_model_bboxes += 1
+                print(f"porownaj_bboxy: Narysowano bbox modelu {model_box['component']} w ({x1}, {y1}) - ({x2}, {y2})")
+            except Exception as e:
+                print(f"porownaj_bboxy: Błąd rysowania bbox modelu {model_box['component']}: {e}")
+
+        print(f"porownaj_bboxy: Narysowano {drawn_model_bboxes} bboxów modelu")
+        if drawn_model_bboxes != len(self.model_bboxes):
+            print(f"porownaj_bboxy: UWAGA: Nie wszystkie bboxy modelu zostały narysowane! Oczekiwano: {len(self.model_bboxes)}, narysowano: {drawn_model_bboxes}")
+
+        # Visualize unmatched boxes (unchanged logic)
+        result = self.visualize_bboxes(base_image, unmatched_model, unmatched_pos)
+        if result is not None:
+            self.show_frame(result, "Obraz z porównaniem bboxów")
+            QMessageBox.information(self, "Wyniki porównania", 
+                                    f"Dopasowane: {len(matched)}\nNiezrównane model: {len(unmatched_model)}\nNiezrównane POS: {len(unmatched_pos)}")
+        else:
+            print("Visualization failed, result is None.")
+        
+        self.save_button_comparision.setEnabled(True)
+
+    def handle_detection_results(self, detections, component_name):
+        """Obsługuje wyniki detekcji z wątku DetectionWorker"""
+        if detections:
+            print(f"Otrzymano {len(detections)} detekcji dla komponentu {component_name}")
+            # Dodaj detekcje do listy wszystkich detekcji
+            for det in detections:
+                self.all_detections.append(det)
+        else:
+            print(f"Brak detekcji dla komponentu {component_name}")
+
+    def handle_detection(self, detections, component_name):
+        """Obsługuje wyniki detekcji z wątku DetectionWorker"""
+
+        if detections:
+            print(f"Otrzymano {len(detections)} detekcji dla komponentu {component_name}")
+
+            if not hasattr(self, 'model_bboxes'):
+                self.model_bboxes = []
+
+            for det in detections:
+                self.all_detections.append(det)
+
+                x1, y1, x2, y2 = det['bbox']
+                confidence = det.get('score', 0.0)
+                width = x2 - x1
+                height = y2 - y1
+
+                self.model_bboxes.append({
+                    'component': component_name,
+                    'x': x1,
+                    'y': y1,
+                    'w': width,
+                    'h': height,
+                    'confidence': confidence
+                })
+
+                self.bboxes.append({
+                    'component': component_name,
+                    'x': x1,
+                    'y': y1,
+                    'w': width,
+                    'h': height,
+                    'confidence': confidence
+                })
+
+                print(self.model_bboxes)
+
+
+                # 🟥 Rysowanie bboxów modelu na overlayed_frame
+                if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+                    cv2.rectangle(self.overlayed_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(self.overlayed_frame, component_name, (x1, y1 - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+
+                # Wypisz nazwę komponentu i jego wymiary bboxa
+                print(f" - {component_name}: x={x1}, y={y1}, w={width}, h={height}, confidence={confidence:.2f}")
+
+            # Po narysowaniu nowych bboxów odśwież widok:
+            self.show_frame(self.overlayed_frame, "Obraz z wykrytymi komponentami (model)")
+            print(f"Model bboxes aktualnie zapisane: {[b['component'] for b in self.model_bboxes]}")
+        else:
+            print(f"Brak detekcji dla komponentu {component_name}")
+
+    def check_workers_compare(self):
+        all_done = all(not worker.isRunning() for worker in self.workers)
+
+        if all_done:
+            self.check_workers_timer.stop()
+            self.analyze_all_button.setEnabled(True)
+            self.analyze_all_button.setText("Analizuj wszystkie")
+
+            if hasattr(self, 'loading_overlay'):
+                self.loading_overlay.close()
+
+            print("Wszystkie detekcje zakończone.")
+            
+            # Sync model_bboxes with the latest detections
+            if hasattr(self, 'all_detections') and self.all_detections:
+                self.model_bboxes = [{
+                    'component': det.get('component_type', 'Nieznany'),
+                    'x': det['bbox'][0],
+                    'y': det['bbox'][1],
+                    'w': det['bbox'][2] - det['bbox'][0],
+                    'h': det['bbox'][3] - det['bbox'][1],
+                    'confidence': det.get('score', 0.0)
+                } for det in self.all_detections]
+                print(f"Updated model_bboxes with {len(self.model_bboxes)} entries: {[b['component'] for b in self.model_bboxes]}")
+            else:
+                print("Warning: all_detections is empty, model_bboxes remains unchanged.")
+
+            # Proceed with comparison only if model_bboxes is not empty and pos_bboxes exists
+            if hasattr(self, 'pos_bboxes') and self.pos_bboxes and self.model_bboxes:
+                self.porownaj_bboxy()
+            else:
+                print("Cannot compare: pos_bboxes or model_bboxes is empty.")
+                if not self.model_bboxes:
+                    print("model_bboxes is empty - check detection process.")
+                if not hasattr(self, 'pos_bboxes') or not self.pos_bboxes:
+                    print("pos_bboxes is not populated or missing.")
+    
+    def check_workers_status(self):
+        """Sprawdza stan wszystkich wątków detekcji i aktualizuje UI po zakończeniu"""
+        all_finished = all(not worker.isRunning() for worker in self.workers)
+        
+
+        if all_finished:
+            self.check_workers_timer.stop()
+            
+            # Ukryj i usuń nakładkę ładowania
+            if hasattr(self, 'loading_overlay') and self.loading_overlay:
+                self.loading_overlay.animation_timer.stop()
+                self.loading_overlay.animation_group.stop()
+                self.loading_overlay.hide()
+                self.loading_overlay.deleteLater()
+                self.loading_overlay = None
+            
+            # 🔁 Najpierw OCR – musi być przed `process_all_detections()`
+            processor = ComponentProcessing(
+                input_root="output_components",
+                preprocessed_output_root="preprocessed_rot_components",
+                output_best_txt="recognized_best_components.txt",
+                output_all_txt="recognized_all_rotations.txt"
+            )
+            processor.process_components()
+
+            # 🧠 Dopiero teraz aktualizuj interfejs (który używa wyników OCR)
+            self.process_all_detections()
+
+            # Zresetuj stan
+            self.workers = []
+            self.analyze_all_button.setText("Analizuj wszystko")
+            self.analyze_all_button.setEnabled(True)
 
     def update_frame(self):
         # Jeżeli analiza dotyczy statycznego obrazu, to nie próbujemy pobierać klatek z kamery
@@ -1782,6 +2471,86 @@ class Camera(QDialog):
             )
         except Exception as e:
             QMessageBox.critical(self, "Błąd", f"Nie udało się nałożyć markerów POS: {str(e)}")
+    
+    def c(self):
+        """Analizuje wszystkie typy komponentów jednocześnie na obrazie"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
+        
+        # Jeśli analiza już jest w toku, zatrzymaj ją
+        if hasattr(self, 'workers') and self.workers:
+            QMessageBox.warning(self, "Uwaga", "Analiza jest już w toku!")
+            return
+        
+        # Pobierz przetworzony obraz
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            analyze_frame = self.overlayed_frame.copy()
+        else:
+            analyze_frame = self.preprocessed_frame.copy()
+        
+        # Zmień tekst przycisku i wyłącz go na czas analizy
+        self.analyze_all_button.setText("Analizowanie...")
+        self.analyze_all_button.setEnabled(False)
+        
+        # Pokaż nakładkę ładowania
+        self.loading_overlay = LoadingOverlay(self)
+        self.loading_overlay.show()
+        
+        # Lista wszystkich modeli do przetworzenia
+        components = list(self.model_paths.keys())
+        models_to_process = []
+        
+        for component_name in components:
+            model_path = self.model_paths[component_name]
+            confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
+            
+            # Utwórz model dla tego komponentu
+            try:
+                model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(state_dict)
+                model.to(self.device)
+                model.eval()
+                
+                models_to_process.append({
+                    'model': model,
+                    'component_name': component_name,
+                    'confidence_threshold': confidence_threshold
+                })
+                
+            except Exception as e:
+                print(f"Błąd podczas ładowania modelu {component_name}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Wyczyść poprzednie detekcje
+        self.all_detections = []
+        self.bboxes = []
+        
+        # Utwórz wątki dla każdego modelu
+        self.workers = []
+        for model_info in models_to_process:
+            output_dir = "output_components"
+            os.makedirs(output_dir, exist_ok=True)
+
+            worker = DetectionWorker(
+                model_info['model'],
+                analyze_frame,
+                model_info['component_name'],
+                model_info['confidence_threshold'],
+                self.device,
+                output_dir,
+                self.component_counter,
+            )
+            worker.finished.connect(self.handle_detection_results)
+            self.workers.append(worker)
+            worker.start()
+        
+        # Uruchom timer sprawdzający stan wszystkich wątków
+        self.check_workers_timer = QTimer()
+        self.check_workers_timer.timeout.connect(self.check_workers_compare)
+        self.check_workers_timer.start(1000)  # Sprawdzaj co 1 sekundę
 
     def analyze_all_components(self):
         """Analizuje wszystkie typy komponentów jednocześnie na obrazie"""
@@ -1863,48 +2632,116 @@ class Camera(QDialog):
         self.check_workers_timer.timeout.connect(self.check_workers_status)
         self.check_workers_timer.start(1000)  # Sprawdzaj co 1 sekundę
     
-    def handle_detection_results(self, detections, component_name):
-        """Obsługuje wyniki detekcji z wątku DetectionWorker"""
-        if detections:
-            print(f"Otrzymano {len(detections)} detekcji dla komponentu {component_name}")
-            # Dodaj detekcje do listy wszystkich detekcji
-            for det in detections:
-                self.all_detections.append(det)
-        else:
-            print(f"Brak detekcji dla komponentu {component_name}")
-    
-    def check_workers_status(self):
-        """Sprawdza stan wszystkich wątków detekcji i aktualizuje UI po zakończeniu"""
-        all_finished = all(not worker.isRunning() for worker in self.workers)
+    def analyze_all_components_compare(self):
+        """Analizuje wszystkie typy komponentów jednocześnie na obrazie"""
+        if not self.frozen or self.preprocessed_frame is None:
+            QMessageBox.warning(self, "Uwaga", "Najpierw załaduj zdjęcie i wykonaj preprocessing!")
+            return
         
+        # Jeśli analiza już jest w toku, zatrzymaj ją
+        if hasattr(self, 'workers') and self.workers:
+            QMessageBox.warning(self, "Uwaga", "Analiza jest już w toku!")
+            return
+        
+        # Pobierz przetworzony obraz
+        if hasattr(self, 'overlayed_frame') and self.overlayed_frame is not None:
+            analyze_frame = self.overlayed_frame.copy()
+        else:
+            analyze_frame = self.preprocessed_frame.copy()
+        
+        # Zmień tekst przycisku i wyłącz go na czas analizy
+        self.analyze_all_button.setText("Analizowanie...")
+        self.analyze_all_button.setEnabled(False)
+        
+        # Pokaż nakładkę ładowania
+        self.loading_overlay = LoadingOverlay(self)
+        self.loading_overlay.show()
+        
+        # Lista wszystkich modeli do przetworzenia
+        components = list(self.model_paths.keys())
+        models_to_process = []
+        
+        for component_name in components:
+            model_path = self.model_paths[component_name]
+            confidence_threshold = self.confidence_thresholds.get(component_name, 0.9)
+            
+            # Utwórz model dla tego komponentu
+            try:
+                model = get_model(2)
+                state_dict = torch.load(model_path, map_location=self.device)
+                model.load_state_dict(state_dict)
+                model.to(self.device)
+                model.eval()
+                
+                models_to_process.append({
+                    'model': model,
+                    'component_name': component_name,
+                    'confidence_threshold': confidence_threshold
+                })
+                
+            except Exception as e:
+                print(f"Błąd podczas ładowania modelu {component_name}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Wyczyść poprzednie detekcje
+        self.all_detections = []
+        self.bboxes = []
+        
+        # Utwórz wątki dla każdego modelu
+        self.workers = []
+        for model_info in models_to_process:
+            output_dir = "output_components"
+            os.makedirs(output_dir, exist_ok=True)
 
-        if all_finished:
-            self.check_workers_timer.stop()
-            
-            # Ukryj i usuń nakładkę ładowania
-            if hasattr(self, 'loading_overlay') and self.loading_overlay:
-                self.loading_overlay.animation_timer.stop()
-                self.loading_overlay.animation_group.stop()
-                self.loading_overlay.hide()
-                self.loading_overlay.deleteLater()
-                self.loading_overlay = None
-            
-            # 🔁 Najpierw OCR – musi być przed `process_all_detections()`
-            processor = ComponentProcessing(
-                input_root="output_components",
-                preprocessed_output_root="preprocessed_rot_components",
-                output_best_txt="recognized_best_components.txt",
-                output_all_txt="recognized_all_rotations.txt"
+            worker = DetectionWorker(
+                model_info['model'],
+                analyze_frame,
+                model_info['component_name'],
+                model_info['confidence_threshold'],
+                self.device,
+                output_dir,
+                self.component_counter,
             )
-            processor.process_components()
+            worker.finished.connect(self.handle_detection_results)
+            self.workers.append(worker)
+            worker.start()
+        
+        # Uruchom timer sprawdzający stan wszystkich wątków
+        self.check_workers_timer = QTimer()
+        self.check_workers_timer.timeout.connect(self.check_workers_compare)
+        self.check_workers_timer.start(1000)  # Sprawdzaj co 1 sekundę
 
-            # 🧠 Dopiero teraz aktualizuj interfejs (który używa wyników OCR)
-            self.process_all_detections()
+def handle_detection_results_compare(self, results):
+    self.all_detections.extend(results)
+    for detection in results:
+        bbox = {
+            'component': detection['component'],
+            'x': detection['x'],
+            'y': detection['y'],
+            'w': detection['w'],
+            'h': detection['h'],
+            'confidence': detection.get('confidence', 0.9)
+        }
+        self.model_bboxes.append(bbox)
 
-            # Zresetuj stan
-            self.workers = []
-            self.analyze_all_button.setText("Analizuj wszystko")
-            self.analyze_all_button.setEnabled(True)
+def check_workers_status_compare(self):
+    if not self.workers:
+        return
+
+    all_finished = all(not worker.isRunning() for worker in self.workers)
+    if all_finished:
+        self.check_workers_timer.stop()
+        self.workers = []
+        
+        print(f"Analiza zakończona. Znaleziono {len(self.model_bboxes)} bboxów z modelu.")
+        print(f"POS bboxes: {len(self.pos_bboxes) if hasattr(self, 'pos_bboxes') else 0}")
+        
+        self.analyze_all_button.setText("Analizuj wszystkie komponenty")
+        self.analyze_all_button.setEnabled(True)
+        
+        self.loading_overlay.close()
+        self.loading_overlay = None
     
     def process_all_detections(self):
         """Przetwarza wszystkie detekcje i aktualizuje UI"""
@@ -1913,6 +2750,8 @@ class Camera(QDialog):
             return
         
         # Aktualizuj listę komponentów
+        self.model_bboxes = self.bboxes.copy()
+        self.update_component_list(self.all_detections)
         self.update_component_list(self.all_detections)
         
         # Wyświetl obraz z zaznaczonymi komponentami
